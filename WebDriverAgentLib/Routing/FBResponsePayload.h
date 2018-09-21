@@ -19,6 +19,16 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
+ Returns 'png' response payload with given object
+ */
+id<FBResponsePayload> UUResponseWithPNG(NSData *object);
+
+/**
+ Returns 'jpg' response payload with given object
+ */
+id<FBResponsePayload> UUResponseWithJPG(id object);
+
+/**
  Returns 'FBCommandStatusNoError' response payload
  */
 id<FBResponsePayload> FBResponseWithOK(void);

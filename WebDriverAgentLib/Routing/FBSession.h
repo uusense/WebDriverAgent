@@ -25,6 +25,8 @@ extern NSString *const FBApplicationCrashedException;
 /*! Application tested during that session */
 @property (nonatomic, strong, readonly) FBApplication *activeApplication;
 
+@property (nonatomic, strong, readonly) FBApplication *uu_application;
+
 /*! Session's identifier */
 @property (nonatomic, copy, readonly) NSString *identifier;
 

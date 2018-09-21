@@ -370,6 +370,149 @@ NSString *const FBXPathQueryEvaluationException = @"FBXPathQueryEvaluationExcept
   return 0;
 }
 
+#pragma mark custom
+
++ (nullable NSString *)uuXmlStringWithSnapshot:(XCElementSnapshot *)root
+{
+  xmlDocPtr doc;
+  xmlTextWriterPtr writer = xmlNewTextWriterDoc(&doc, 0);
+  int rc = [FBXPath uuGetSnapshotAsXML:(XCElementSnapshot *)root writer:writer elementStore:nil];
+  if (rc < 0) {
+    xmlFreeTextWriter(writer);
+    xmlFreeDoc(doc);
+    return nil;
+  }
+  int buffersize;
+  xmlChar *xmlbuff;
+  xmlDocDumpFormatMemory(doc, &xmlbuff, &buffersize, 1);
+  xmlFreeTextWriter(writer);
+  xmlFreeDoc(doc);
+  return [NSString stringWithCString:(const char *)xmlbuff encoding:NSUTF8StringEncoding];
+}
+
++ (int)uuGetSnapshotAsXML:(XCElementSnapshot *)root writer:(xmlTextWriterPtr)writer elementStore:(nullable NSMutableDictionary *)elementStore
+{
+  int rc = xmlTextWriterStartDocument(writer, NULL, _UTF8Encoding, NULL);
+  if (rc < 0) {
+    [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterStartDocument. Error code: %d", rc];
+    return rc;
+  }
+  rc = [FBXPath uuGenerateXMLPresentation:root indexPath:(elementStore != nil ? topNodeIndexPath : nil) elementStore:elementStore writer:writer];
+  if (rc < 0) {
+    [FBLogger log:@"Failed to generate XML presentation of a screen element"];
+    return rc;
+  }
+  if (nil != elementStore) {
+    // The current node should be in the store as well
+    elementStore[topNodeIndexPath] = root;
+  }
+  rc = xmlTextWriterEndDocument(writer);
+  if (rc < 0) {
+    [FBLogger logFmt:@"Failed to invoke libxml2>xmlXPathNewContext. Error code: %d", rc];
+    return rc;
+  }
+  return 0;
+}
+
++ (int)uuRecordElementAttributes:(xmlTextWriterPtr)writer forElement:(XCElementSnapshot *)element indexPath:(nullable NSString *)indexPath
+{
+  int rc = xmlTextWriterWriteAttribute(writer, BAD_CAST "type", [self.class safeXmlStringWithString:element.wdType]);
+  if (rc < 0) {
+    [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterWriteAttribute(type='%@'). Error code: %d", element.wdType, rc];
+    return rc;
+  }
+  if (element.wdValue) {
+    id value = element.wdValue;
+    NSString *stringValue;
+    if ([value isKindOfClass:[NSValue class]]) {
+      stringValue = [value stringValue];
+    } else if ([value isKindOfClass:[NSString class]]) {
+      stringValue = value;
+    } else {
+      stringValue = [value description];
+    }
+    rc = xmlTextWriterWriteAttribute(writer, BAD_CAST "value", [self.class safeXmlStringWithString:stringValue]);
+    if (rc < 0) {
+      [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterWriteAttribute(value='%@'). Error code: %d", stringValue, rc];
+      return rc;
+    }
+  }
+  if (element.wdName) {
+    rc = xmlTextWriterWriteAttribute(writer, BAD_CAST "name", [self.class safeXmlStringWithString:element.wdName]);
+    if (rc < 0) {
+      [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterWriteAttribute(name='%@'). Error code: %d", element.wdName, rc];
+      return rc;
+    }
+  }
+  if (element.wdLabel) {
+    rc = xmlTextWriterWriteAttribute(writer, BAD_CAST "label", [self.class safeXmlStringWithString:element.wdLabel]);
+    if (rc < 0) {
+      [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterWriteAttribute(label='%@'). Error code: %d", element.wdLabel, rc];
+      return rc;
+    }
+  }
+  rc = xmlTextWriterWriteAttribute(writer, BAD_CAST "enabled", element.wdEnabled ? BAD_CAST "true" : BAD_CAST "false");
+  if (rc < 0) {
+    [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterWriteAttribute(wdEnabled). Error code: %d", rc];
+    return rc;
+  }
+  
+  for (NSString *attrName in @[@"x", @"y", @"width", @"height"]) {
+    rc = xmlTextWriterWriteAttribute(writer, [self.class safeXmlStringWithString:attrName],
+                                     [self.class safeXmlStringWithString:[element.wdRect[attrName] stringValue]]);
+    if (rc < 0) {
+      [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterWriteAttribute(%@). Error code: %d", attrName, rc];
+      return rc;
+    }
+  }
+  
+  if (nil != indexPath) {
+    rc = xmlTextWriterWriteAttribute(writer, [self.class safeXmlStringWithString:kXMLIndexPathKey], [self.class safeXmlStringWithString:indexPath]);
+    if (rc < 0) {
+      [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterWriteAttribute(indexPath='%@'). Error code: %d", indexPath, rc];
+      return rc;
+    }
+  }
+  
+  return 0;
+}
+
++ (int)uuGenerateXMLPresentation:(XCElementSnapshot *)root indexPath:(nullable NSString *)indexPath elementStore:(nullable NSMutableDictionary *)elementStore writer:(xmlTextWriterPtr)writer
+{
+  NSAssert((indexPath == nil && elementStore == nil) || (indexPath != nil && elementStore != nil), @"Either both or none of indexPath and elementStore arguments should be equal to nil", nil);
+  
+  int rc = xmlTextWriterStartElement(writer, [FBXPath xmlCharPtrForInput:[root.wdType cStringUsingEncoding:NSUTF8StringEncoding]]);
+  if (rc < 0) {
+    [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterStartElement. Error code: %d", rc];
+    return rc;
+  }
+  
+  rc = [FBXPath uuRecordElementAttributes:writer forElement:root indexPath:indexPath];
+  if (rc < 0) {
+    return rc;
+  }
+  
+  NSArray *children = root.children;
+  for (NSUInteger i = 0; i < [children count]; i++) {
+    XCElementSnapshot *childSnapshot = children[i];
+    NSString *newIndexPath = (indexPath != nil) ? [indexPath stringByAppendingFormat:@",%lu", (unsigned long)i] : nil;
+    if (elementStore != nil && newIndexPath != nil) {
+      elementStore[newIndexPath] = childSnapshot;
+    }
+    rc = [self uuGenerateXMLPresentation:childSnapshot indexPath:newIndexPath elementStore:elementStore writer:writer];
+    if (rc < 0) {
+      return rc;
+    }
+  }
+  
+  rc = xmlTextWriterEndElement(writer);
+  if (rc < 0) {
+    [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterEndElement. Error code: %d", rc];
+    return rc;
+  }
+  return 0;
+}
+
 @end
 
 

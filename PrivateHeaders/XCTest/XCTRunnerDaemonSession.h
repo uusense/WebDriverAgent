@@ -6,6 +6,7 @@
 
 #import "XCTestManager_TestsInterface-Protocol.h"
 #import "XCEventGenerator.h"
+#import "XCElementSnapshot.h"
 #import <WebDriverAgentLib/CDStructures.h>
 #import <UIKit/UIKit.h>
 

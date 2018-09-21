@@ -20,7 +20,19 @@
 #import "XCUIElement+FBUtilities.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
 
+#import "UUResponsePicPayload.h"
+
 NSString *arbitraryAttrPrefix = @"attribute/";
+
+id<FBResponsePayload> UUResponseWithPNG(NSData *object)
+{
+  return [[UUResponsePicPayload alloc] initWithData:object andType:@"png"];
+}
+
+id<FBResponsePayload> UUResponseWithJPG(id object)
+{
+  return [[UUResponsePicPayload alloc] initWithData:object andType:@"jpg"];
+}
 
 id<FBResponsePayload> FBResponseWithOK()
 {

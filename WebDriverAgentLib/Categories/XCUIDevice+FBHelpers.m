@@ -22,6 +22,7 @@
 
 #import "XCUIDevice.h"
 #import "XCAXClient_iOS.h"
+#import "XCUIScreen.h"
 
 static const NSTimeInterval FBHomeButtonCoolOffTime = 1.;
 static const NSTimeInterval FBScreenLockTimeout = 5.;
@@ -101,6 +102,67 @@ static bool fb_isLocked;
           spinUntilTrue:^BOOL{
             return !fb_isLocked;
           } error:error];
+}
+
+- (NSData *)uu_screenshotWithSize:(CGRect)rect andQuality:(NSUInteger)q andError:(NSError*__autoreleasing*)error
+{
+  Class xcScreenClass = objc_lookUpClass("XCUIScreen");
+  XCUIApplication *application = FBApplication.fb_activeApplication;
+  if (application) {
+    
+  }
+  NSUInteger quality = 2;
+  CGRect screenRect = CGRectZero;
+  
+  if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width)) {
+    XCUIApplication *app = FBApplication.fb_activeApplication;
+    CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
+    screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
+  } else {
+    screenRect = rect;
+  }
+  
+  if (0 < q && q < 3) {
+    quality = q;
+  }
+  
+  XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
+  
+  NSData *result = nil;
+  if ( [[UIDevice currentDevice].systemVersion doubleValue] <= 11 ) {
+    result = [[mainScreen screenshot] PNGRepresentation];
+  } else {
+    result = [mainScreen screenshotDataForQuality:quality rect:screenRect error:error];
+  }
+  if (nil == result) {
+    return nil;
+  }
+  
+  return result;
+}
+
+- (NSData *)uu_screenshotWithError:(NSError*__autoreleasing*)error
+{
+  XCUIApplication *app = FBApplication.fb_activeApplication;
+  Class xcScreenClass = objc_lookUpClass("XCUIScreen");
+  NSData *result = nil;
+  XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
+  if ( [[UIDevice currentDevice].systemVersion doubleValue] <= 11 ) {
+    result = [[mainScreen screenshot] PNGRepresentation];
+  } else {
+    CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
+    // https://developer.apple.com/documentation/xctest/xctimagequality?language=objc
+    // Select lower quality, since XCTest crashes randomly if the maximum quality (zero value) is selected
+    // and the resulting screenshot does not fit the memory buffer preallocated for it by the operating system
+    NSUInteger quality = 2;
+    CGRect screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
+    result = [mainScreen screenshotDataForQuality:quality rect:screenRect error:error];
+  }
+  if (nil == result) {
+    return nil;
+  }
+  
+  return result;
 }
 
 - (NSData *)fb_screenshotWithError:(NSError*__autoreleasing*)error

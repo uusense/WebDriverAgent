@@ -155,7 +155,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 1.;
 }
 
 + (id<FBResponsePayload>)uuDealAlert:(FBRouteRequest *)request {
-  FBApplication *application = request.session.application ?: [FBApplication fb_activeApplication];
+  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
   FBAlert *alert = [FBAlert alertWithApplication:application];
   NSError *error;
   NSInteger counts = 0;
@@ -171,7 +171,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 1.;
 }
 
 + (id<FBResponsePayload>)uuDealAlertWithParam:(FBRouteRequest *)request {
-  FBApplication *application = request.session.application ?: [FBApplication fb_activeApplication];
+  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
   BOOL accept = [request.arguments[@"accept"] boolValue];
   FBAlert *alert = [FBAlert alertWithApplication:application];
   if (nil == alert) {
@@ -337,8 +337,8 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 1.;
 }
 
 + (id<FBResponsePayload>)handleGetWindowSize:(FBRouteRequest *)request {
-  CGRect frame = request.session.application.wdFrame;
-  CGSize screenSize = FBAdjustDimensionsForApplication(frame.size, request.session.application.interfaceOrientation);
+  CGRect frame = request.session.activeApplication.wdFrame;
+  CGSize screenSize = FBAdjustDimensionsForApplication(frame.size, request.session.activeApplication.interfaceOrientation);
   return FBResponseWithStatus(FBCommandStatusNoError, @{
                                                         @"width": @(screenSize.width),
                                                         @"height": @(screenSize.height),
@@ -356,7 +356,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 1.;
 
 + (id<FBResponsePayload>)uuSource:(FBRouteRequest *)request {
   CFAbsoluteTime start = CFAbsoluteTimeGetCurrent();
-  FBApplication *application = request.session.application ?: [FBApplication fb_activeApplication];
+  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
   NSString *sourceType = request.parameters[@"format"];
   id result;
   if (!sourceType || [sourceType caseInsensitiveCompare:@"xml"] == NSOrderedSame) {
@@ -379,7 +379,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 1.;
 }
 
 + (id<FBResponsePayload>)uuBack:(FBRouteRequest *)request {
-  FBApplication *application = request.session.application ?: [FBApplication fb_activeApplication];
+  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
   if (application.navigationBars.buttons.count > 0) {
     [[application.navigationBars.buttons elementBoundByIndex:0] tap];
     return FBResponseWithOK();
@@ -396,7 +396,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 1.;
 
 + (id<FBResponsePayload>)handleMonkeyCommand:(FBRouteRequest *)request {
   @autoreleasepool {
-    FBApplication *app = request.session.application ?: [FBApplication fb_activeApplication];
+    FBApplication *app = request.session.activeApplication ?: [FBApplication fb_activeApplication];
     if (nil != app) { }
     XCUIApplication *application = [UUMonkeySingleton sharedInstance].application;
     NSInteger monkeyIterations = [request.arguments[@"monkeyIterations"] integerValue];

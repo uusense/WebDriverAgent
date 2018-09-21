@@ -59,6 +59,8 @@ extern NSString *const FBXPathQueryEvaluationException;
  */
 + (nullable NSString *)xmlStringWithRootElement:(id<FBElement>)root;
 
++ (nullable NSString *)uuXmlStringWithSnapshot:(XCElementSnapshot *)root;
+
 @end
 
 NS_ASSUME_NONNULL_END

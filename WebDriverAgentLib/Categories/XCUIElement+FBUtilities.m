@@ -67,20 +67,22 @@ static const NSTimeInterval FBANIMATION_TIMEOUT = 5.0;
   return YES;
 }
 
-static BOOL FBShouldUseSnapshotForDebugDescription = NO;
-static dispatch_once_t onceUseSnapshotForDebugDescriptionToken;
+//static BOOL FBShouldUseSnapshotForDebugDescription = NO;
+//static dispatch_once_t onceUseSnapshotForDebugDescriptionToken;
 
 - (XCElementSnapshot *)fb_lastSnapshot
 {
-  XCUIElementQuery *query = [self query];
-  dispatch_once(&onceUseSnapshotForDebugDescriptionToken, ^{
-    FBShouldUseSnapshotForDebugDescription = [query respondsToSelector:NSSelectorFromString(@"elementSnapshotForDebugDescription")];
-  });
-  if (FBShouldUseSnapshotForDebugDescription) {
-    return (XCElementSnapshot *)[query valueForKey:@"elementSnapshotForDebugDescription"];
-  }
+//  XCUIElementQuery *query = [self query];
+//  dispatch_once(&onceUseSnapshotForDebugDescriptionToken, ^{
+//    FBShouldUseSnapshotForDebugDescription = [query respondsToSelector:NSSelectorFromString(@"elementSnapshotForDebugDescription")];
+//  });
+//  if (FBShouldUseSnapshotForDebugDescription) {
+//    return (XCElementSnapshot *)[query valueForKey:@"elementSnapshotForDebugDescription"];
+//  }
+//  [self resolve];
+//  return self.lastSnapshot;
   [self resolve];
-  return self.lastSnapshot;
+  return [[self query] elementSnapshotForDebugDescription];
 }
 
 static const NSTimeInterval AX_TIMEOUT = 15.;

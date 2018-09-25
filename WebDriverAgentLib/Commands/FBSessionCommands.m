@@ -19,6 +19,9 @@
 #import "XCUIDevice+FBHealthCheck.h"
 #import "XCUIDevice+FBHelpers.h"
 
+#import <sys/utsname.h>
+#import "UUMonkeySingleton.h"
+
 @implementation FBSessionCommands
 
 #pragma mark - <FBCommandHandler>
@@ -99,6 +102,9 @@
   } else {
     [FBSession sessionWithApplication:app];
   }
+  
+  /* record the latest started application */
+  [UUMonkeySingleton sharedInstance].application = app;
 
   return FBResponseWithObject(FBSessionCommands.sessionInformation);
 }
@@ -157,6 +163,13 @@
   if (nil != upgradeTimestamp && upgradeTimestamp.length > 0) {
     [buildInfo setObject:upgradeTimestamp forKey:@"upgradedAt"];
   }
+  
+  struct utsname systemInfo;
+  
+  uname(&systemInfo);
+  
+  NSString* code = [NSString stringWithCString:systemInfo.machine
+                                      encoding:NSUTF8StringEncoding];
 
   return
   FBResponseWithStatus(
@@ -165,6 +178,7 @@
       @"state" : @"success",
       @"os" :
         @{
+          @"code" : code ?: @"",
           @"name" : [[UIDevice currentDevice] systemName],
           @"version" : [[UIDevice currentDevice] systemVersion],
           @"sdkVersion": FBSDKVersion() ?: @"unknown",

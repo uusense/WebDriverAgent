@@ -64,7 +64,7 @@ static NSString *const SOURCE_FORMAT_DESCRIPTION = @"description";
 
 + (id<FBResponsePayload>)handleGetAccessibleSourceCommand:(FBRouteRequest *)request
 {
-  FBApplication *application = request.session.activeApplication;
+  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
   return FBResponseWithObject(application.fb_accessibilityTree ?: @{});
 }
 

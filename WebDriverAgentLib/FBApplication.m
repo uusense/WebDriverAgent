@@ -99,6 +99,7 @@
     [self.fb_appImpl removeObserver:self forKeyPath:FBStringify(XCUIApplicationImpl, currentProcess)];
   }
   [super terminate];
+  [FBApplication fb_removeApplication:self];
 }
 
 
@@ -156,6 +157,28 @@ static NSMutableDictionary *FBPidToApplicationMapping;
     FBPidToApplicationMapping = [NSMutableDictionary dictionary];
   });
   FBPidToApplicationMapping[@(application.processID)] = application;
+}
+
++ (void)fb_removeApplication:(FBApplication *)application
+{
+  @autoreleasepool {
+    if (nil == FBPidToApplicationMapping || nil == application) {
+      return;
+    }
+    
+    __block NSMutableArray<NSNumber *> *targetKeys = [NSMutableArray array];
+    
+    [FBPidToApplicationMapping enumerateKeysAndObjectsUsingBlock:^(NSNumber *  _Nonnull key, FBApplication *  _Nonnull obj, BOOL * _Nonnull stop) {
+      if ([obj.bundleID isEqualToString:application.bundleID]) {
+        [targetKeys addObject:[key copy]];
+      }
+    }];
+    
+    for (NSNumber *targetKey in targetKeys) {
+      [FBPidToApplicationMapping removeObjectForKey:targetKey];
+    }
+    targetKeys = nil;
+  }
 }
 
 @end

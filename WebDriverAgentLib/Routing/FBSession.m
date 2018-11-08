@@ -196,6 +196,7 @@ static FBSession *_activeSession;
   XCUIApplication *app = [self registerApplicationWithBundleId:bundleIdentifier];
   BOOL result = NO;
   if (app.fb_state >= 2) {
+    [app clearQuery];
     [app terminate];
     result = YES;
   }

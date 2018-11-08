@@ -104,6 +104,7 @@
   }
   
   /* record the latest started application */
+  [UUMonkeySingleton sharedInstance].application = nil;
   [UUMonkeySingleton sharedInstance].application = app;
 
   return FBResponseWithObject(FBSessionCommands.sessionInformation);

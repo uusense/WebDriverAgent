@@ -60,7 +60,7 @@
 
 #import <ReplayKit/ReplayKit.h>
 
-static const NSTimeInterval UUHomeButtonCoolOffTime = 1.;
+static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 
 @interface UUElementCommands ()
 

@@ -73,7 +73,6 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 + (NSArray *)routes {
   return
   @[
-    [[FBRoute GET:@"/applist"].withoutSession respondWithTarget:self action:@selector(handleAPPList:)],
     [[FBRoute POST:@"/uusense/tap"].withoutSession respondWithTarget:self action:@selector(uuHandleTap:)],
     [[FBRoute POST:@"/uusense/forcetouch"].withoutSession respondWithTarget:self action:@selector(uuHandleForceTouch:)],
     [[FBRoute POST:@"/uusense/touchAndHold"].withoutSession respondWithTarget:self action:@selector(uuHandleTouchAndHoldCoordinate:)],
@@ -97,6 +96,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     [[FBRoute POST:@"/uusense/doubleMove"].withoutSession respondWithTarget:self action:@selector(uu_handleDoubleMove:)],
     
     [[FBRoute GET:@"/uusense/lockButton"].withoutSession respondWithTarget:self action:@selector(uu_lockButton:)],
+    [[FBRoute POST:@"/uusense/unlockWithOutCheck"].withoutSession respondWithTarget:self action:@selector(handleUnlock:)],
   ];
 }
 
@@ -228,33 +228,6 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   [dic setObject:@"MB" forKey:@"memeryUnit"];
   
   return FBResponseWithObject(dic);
-}
-
-+ (id<FBResponsePayload>)handleAPPList:(FBRouteRequest *)request {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wundeclared-selector"
-  Class LSApplicationWorkspace_class = objc_getClass("LSApplicationWorkspace");
-  NSObject* workspace = [LSApplicationWorkspace_class performSelector:@selector(defaultWorkspace)];
-  
-  NSArray *appList = [workspace performSelector:@selector(allApplications)];
-  Class LSApplicationProxy_class = object_getClass(@"LSApplicationProxy");
-  NSMutableArray *result = [NSMutableArray array];
-  for (LSApplicationProxy_class in appList)
-  {
-    NSString *bundleID      = [LSApplicationProxy_class performSelector:@selector(applicationIdentifier)] ?:@"";
-    NSString *localizedName = [LSApplicationProxy_class performSelector:@selector(localizedName)] ?:@"";
-    NSString *shortVersionString =  [LSApplicationProxy_class performSelector:@selector(shortVersionString)] ?:@"";
-    if ([bundleID  isEqual: @""] || [bundleID hasPrefix:@"com.apple."] ) {
-      continue;
-    }
-    NSMutableDictionary *dic = [NSMutableDictionary dictionary];
-    [dic setObject:bundleID forKey:@"bundleID"];
-    [dic setObject:shortVersionString forKey:@"version"];
-    [dic setObject:localizedName forKey:@"localizedName"];
-    [result addObject:dic];
-  }
-#pragma clang diagnostic pop
-  return FBResponseWithObject(result);
 }
 
 + (id<FBResponsePayload>)uuHandleDoubleTapCoordinate:(FBRouteRequest *)request {
@@ -452,6 +425,15 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     return FBResponseWithErrorFormat(@"Failed to input");
   }
     return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handleUnlock:(FBRouteRequest *)request
+{
+  NSError *error;
+  if (![[XCUIDevice sharedDevice] uu_unlockScreen:&error]) {
+    return FBResponseWithError(error);
+  }
+  return FBResponseWithOK();
 }
 
 

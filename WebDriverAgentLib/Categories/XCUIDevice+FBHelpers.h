@@ -51,6 +51,7 @@ NS_ASSUME_NONNULL_BEGIN
  @return YES if the operation succeeds, otherwise NO.
  */
 - (BOOL)fb_unlockScreen:(NSError **)error;
+- (BOOL)uu_unlockScreen:(NSError **)error;
 
 /**
  Returns screenshot

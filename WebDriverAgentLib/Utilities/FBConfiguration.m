@@ -23,8 +23,12 @@ static NSUInteger const DefaultPortRange = 100;
 static BOOL FBShouldUseTestManagerForVisibilityDetection = NO;
 static BOOL FBShouldUseSingletonTestManager = YES;
 static BOOL FBShouldUseCompactResponses = YES;
+static BOOL FBShouldWaitForQuiescence = NO;
 static NSString *FBElementResponseAttributes = @"type,label";
 static NSUInteger FBMaxTypingFrequency = 60;
+static NSUInteger FBMjpegServerScreenshotQuality = 25;
+static NSUInteger FBMjpegServerFramerate = 10;
+static NSUInteger FBScreenshotQuality = 1;
 
 @implementation FBConfiguration
 
@@ -58,6 +62,10 @@ static NSUInteger FBMaxTypingFrequency = 60;
 
 + (NSInteger)mjpegServerPort
 {
+  if (self.mjpegServerPortFromArguments != NSNotFound) {
+    return self.mjpegServerPortFromArguments;
+  }
+  
   if (NSProcessInfo.processInfo.environment[@"MJPEG_SERVER_PORT"] &&
       [NSProcessInfo.processInfo.environment[@"MJPEG_SERVER_PORT"] length] > 0) {
     return [NSProcessInfo.processInfo.environment[@"MJPEG_SERVER_PORT"] integerValue];
@@ -121,20 +129,77 @@ static NSUInteger FBMaxTypingFrequency = 60;
   return FBShouldUseSingletonTestManager;
 }
 
-+ (BOOL)shouldLoadSnapshotWithAttributes {
++ (BOOL)shouldLoadSnapshotWithAttributes
+{
   return [XCElementSnapshot fb_attributesForElementSnapshotKeyPathsSelector] != nil;
+}
+
++ (BOOL)shouldWaitForQuiescence
+{
+  return FBShouldWaitForQuiescence;
+}
+
++ (void)setShouldWaitForQuiescence:(BOOL)value
+{
+  FBShouldWaitForQuiescence = value;
+}
+
++ (NSUInteger)mjpegServerFramerate
+{
+  return FBMjpegServerFramerate;
+}
+
++ (void)setMjpegServerFramerate:(NSUInteger)framerate
+{
+  FBMjpegServerFramerate = framerate;
+}
+
++ (NSUInteger)mjpegServerScreenshotQuality
+{
+  return FBMjpegServerScreenshotQuality;
+}
+
++ (void)setMjpegServerScreenshotQuality:(NSUInteger)quality
+{
+  FBMjpegServerScreenshotQuality = quality;
+}
+
++ (NSUInteger)screenshotQuality
+{
+  return FBScreenshotQuality;
+}
+
++ (void)setScreenshotQuality:(NSUInteger)quality
+{
+  FBScreenshotQuality = quality;
 }
 
 #pragma mark Private
 
++ (NSString*)valueFromArguments: (NSArray<NSString *> *)arguments forKey: (NSString*)key
+{
+  NSUInteger index = [arguments indexOfObject:key];
+  if (index == NSNotFound || index == arguments.count - 1) {
+    return nil;
+  }
+  return arguments[index + 1];
+}
+
++ (NSUInteger)mjpegServerPortFromArguments
+{
+  NSString *portNumberString = [self valueFromArguments: NSProcessInfo.processInfo.arguments
+                                                 forKey: @"--mjpeg-server-port"];
+  NSUInteger port = (NSUInteger)[portNumberString integerValue];
+  if (port == 0) {
+    return NSNotFound;
+  }
+  return port;
+}
+
 + (NSRange)bindingPortRangeFromArguments
 {
-  NSArray *arguments = NSProcessInfo.processInfo.arguments;
-  NSUInteger index = [arguments indexOfObject:@"--port"];
-  if (index == NSNotFound || index == arguments.count - 1) {
-    return NSMakeRange(NSNotFound, 0);
-  }
-  NSString *portNumberString = arguments[index + 1];
+  NSString *portNumberString = [self valueFromArguments:NSProcessInfo.processInfo.arguments
+                                                 forKey: @"--port"];
   NSUInteger port = (NSUInteger)[portNumberString integerValue];
   if (port == 0) {
     return NSMakeRange(NSNotFound, 0);

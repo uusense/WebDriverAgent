@@ -6,8 +6,8 @@
 
 @interface XCUIScreen()
 {
-    _Bool _isMainScreen;
-    int _displayID;
+  _Bool _isMainScreen;
+  int _displayID;
 }
 @property(readonly) _Bool isMainScreen; // @synthesize isMainScreen=_isMainScreen;
 @property(readonly) int displayID; // @synthesize displayID=_displayID;

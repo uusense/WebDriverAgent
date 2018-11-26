@@ -16,6 +16,7 @@
 
 #import "FBSpringboardApplication.h"
 #import "FBErrorBuilder.h"
+#import "FBImageUtils.h"
 #import "FBMacros.h"
 #import "FBMathUtils.h"
 #import "FBXCodeCompatibility.h"
@@ -185,64 +186,16 @@ static bool fb_isLocked;
 
 - (NSData *)fb_screenshotWithError:(NSError*__autoreleasing*)error
 {
-  if (nil == NSClassFromString(@"XCUIScreen")) {
-    NSData *result = [[XCAXClient_iOS sharedClient] screenshotData];
-    if (nil == result) {
-      if (error) {
-        *error = [[FBErrorBuilder.builder withDescription:@"Cannot take a screenshot of the current screen state"] build];
-      }
-      return nil;
-    }
-    return result;
-  }
-
-  FBApplication *activeApplication = FBApplication.fb_activeApplication;
-  UIInterfaceOrientation orientation = activeApplication.interfaceOrientation;
-  CGSize screenSize = FBAdjustDimensionsForApplication(activeApplication.frame.size, orientation);
-  CGRect screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
-  // https://developer.apple.com/documentation/xctest/xctimagequality?language=objc
-  // Select lower quality, since XCTest crashes randomly if the maximum quality (zero value) is selected
-  // and the resulting screenshot does not fit the memory buffer preallocated for it by the operating system
-  NSData *imageData = [self fb_rawScreenshotWithQuality:1 rect:screenRect error:error];
-  if (nil == imageData) {
+  NSData* screenshotData = [self fb_rawScreenshotWithQuality:FBConfiguration.screenshotQuality rect:CGRectNull error:error];
+  if (nil == screenshotData) {
     return nil;
   }
-  return FBAdjustScreenshotOrientationForApplication(imageData, orientation);
+  return FBAdjustScreenshotOrientationForApplication(screenshotData, FBApplication.fb_activeApplication.interfaceOrientation);
 }
 
 - (NSData *)fb_rawScreenshotWithQuality:(NSUInteger)quality rect:(CGRect)rect error:(NSError*__autoreleasing*)error
 {
-  id xcScreen = NSClassFromString(@"XCUIScreen");
-  if (nil == xcScreen) {
-    NSData *result = [[XCAXClient_iOS sharedClient] screenshotData];
-    if (nil == result) {
-      if (error) {
-        *error = [[FBErrorBuilder.builder withDescription:@"Cannot take a screenshot of the current screen state"] build];
-      }
-      return nil;
-    }
-    if (quality > 0) {
-      return (NSData *)UIImageJPEGRepresentation((id)[UIImage imageWithData:result], 100 / quality);
-    }
-    return result;
-  }
-
-  id mainScreen = [xcScreen valueForKey:@"mainScreen"];
-  SEL mSelector = NSSelectorFromString(@"screenshotDataForQuality:rect:error:");
-  NSMethodSignature *mSignature = [mainScreen methodSignatureForSelector:mSelector];
-  NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:mSignature];
-  [invocation setTarget:mainScreen];
-  [invocation setSelector:mSelector];
-  [invocation setArgument:&quality atIndex:2];
-  [invocation setArgument:&rect atIndex:3];
-  [invocation setArgument:&error atIndex:4];
-  [invocation invoke];
-  NSData __unsafe_unretained *imageData;
-  [invocation getReturnValue:&imageData];
-  if (nil == imageData) {
-    return nil;
-  }
-  return imageData;
+  return [XCUIScreen.mainScreen screenshotDataForQuality:quality rect:rect error:error];
 }
 
 - (BOOL)fb_fingerTouchShouldMatch:(BOOL)shouldMatch
@@ -296,12 +249,7 @@ static bool fb_isLocked;
   
   id siriService = [self valueForKey:@"siriService"];
   if (nil != siriService) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-    [siriService performSelector:NSSelectorFromString(@"activateWithVoiceRecognitionText:")
-                      withObject:[NSString stringWithFormat:@"Open {%@}", url]];
-#pragma clang diagnostic pop
-    return YES;
+    return [self fb_activateSiriVoiceRecognitionWithText:[NSString stringWithFormat:@"Open {%@}", url] error:error];
   }
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -312,6 +260,55 @@ static bool fb_isLocked;
              withDescriptionFormat:@"The URL %@ cannot be opened", url]
             buildError:error];
   }
+  return YES;
+}
+
+- (BOOL)fb_activateSiriVoiceRecognitionWithText:(NSString *)text error:(NSError **)error
+{
+  id siriService = [self valueForKey:@"siriService"];
+  if (nil == siriService) {
+    return [[[FBErrorBuilder builder]
+             withDescription:@"Siri service is not available on the device under test"]
+            buildError:error];
+  }
+  @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    [siriService performSelector:NSSelectorFromString(@"activateWithVoiceRecognitionText:")
+                      withObject:text];
+#pragma clang diagnostic pop
+    return YES;
+  } @catch (NSException *e) {
+    return [[[FBErrorBuilder builder]
+             withDescriptionFormat:@"%@", e.reason]
+            buildError:error];
+  }
+}
+
+- (BOOL)fb_pressButton:(NSString *)buttonName error:(NSError **)error
+{
+  NSMutableArray<NSString *> *supportedButtonNames = [NSMutableArray array];
+  XCUIDeviceButton dstButton = 0;
+  if ([buttonName.lowercaseString isEqualToString:@"home"]) {
+    dstButton = XCUIDeviceButtonHome;
+  }
+  [supportedButtonNames addObject:@"home"];
+#if !TARGET_OS_SIMULATOR
+  if ([buttonName.lowercaseString isEqualToString:@"volumeup"]) {
+    dstButton = XCUIDeviceButtonVolumeUp;
+  }
+  if ([buttonName.lowercaseString isEqualToString:@"volumedown"]) {
+    dstButton = XCUIDeviceButtonVolumeDown;
+  }
+  [supportedButtonNames addObject:@"volumeUp"];
+  [supportedButtonNames addObject:@"volumeDown"];
+#endif
+  if (dstButton == 0) {
+    return [[[FBErrorBuilder builder]
+             withDescriptionFormat:@"The button '%@' is unknown. Only the following button names are supported: %@", buttonName, supportedButtonNames]
+            buildError:error];
+  }
+  [self pressButton:dstButton];
   return YES;
 }
 

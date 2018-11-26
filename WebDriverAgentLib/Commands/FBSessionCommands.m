@@ -18,9 +18,14 @@
 #import "XCUIDevice.h"
 #import "XCUIDevice+FBHealthCheck.h"
 #import "XCUIDevice+FBHelpers.h"
-
 #import <sys/utsname.h>
 #import "UUMonkeySingleton.h"
+
+static NSString* const USE_COMPACT_RESPONSES = @"shouldUseCompactResponses";
+static NSString* const ELEMENT_RESPONSE_ATTRIBUTES = @"elementResponseAttributes";
+static NSString* const MJPEG_SERVER_SCREENSHOT_QUALITY = @"mjpegServerScreenshotQuality";
+static NSString* const MJPEG_SERVER_FRAMERATE = @"mjpegServerFramerate";
+static NSString* const SCREENSHOT_QUALITY = @"screenshotQuality";
 
 @implementation FBSessionCommands
 
@@ -82,14 +87,16 @@
     [FBConfiguration setElementResponseAttributes:elementResponseAttributes];
   }
   if (requirements[@"maxTypingFrequency"]) {
-    [FBConfiguration setMaxTypingFrequency:[requirements[@"maxTypingFrequency"] integerValue]];
+    [FBConfiguration setMaxTypingFrequency:[requirements[@"maxTypingFrequency"] unsignedIntegerValue]];
   }
   if (requirements[@"shouldUseSingletonTestManager"]) {
     [FBConfiguration setShouldUseSingletonTestManager:[requirements[@"shouldUseSingletonTestManager"] boolValue]];
   }
 
+  [FBConfiguration setShouldWaitForQuiescence:[requirements[@"shouldWaitForQuiescence"] boolValue]];
+
   FBApplication *app = [[FBApplication alloc] initPrivateWithPath:appPath bundleID:bundleID];
-  app.fb_shouldWaitForQuiescence = [requirements[@"shouldWaitForQuiescence"] boolValue];
+  app.fb_shouldWaitForQuiescence = FBConfiguration.shouldWaitForQuiescence;
   app.launchArguments = (NSArray<NSString *> *)requirements[@"arguments"] ?: @[];
   app.launchEnvironment = (NSDictionary <NSString *, NSString *> *)requirements[@"environment"] ?: @{};
   [app launch];
@@ -113,6 +120,7 @@
 + (id<FBResponsePayload>)handleSessionAppLaunch:(FBRouteRequest *)request
 {
   [request.session launchApplicationWithBundleId:(id)request.arguments[@"bundleId"]
+                         shouldWaitForQuiescence:request.arguments[@"shouldWaitForQuiescence"]
                                        arguments:request.arguments[@"arguments"]
                                      environment:request.arguments[@"environment"]];
   return FBResponseWithOK();
@@ -206,8 +214,11 @@
 {
   return FBResponseWithObject(
     @{
-      @"shouldUseCompactResponses": @([FBConfiguration shouldUseCompactResponses]),
-      @"elementResponseAttributes": [FBConfiguration elementResponseAttributes]
+      USE_COMPACT_RESPONSES: @([FBConfiguration shouldUseCompactResponses]),
+      ELEMENT_RESPONSE_ATTRIBUTES: [FBConfiguration elementResponseAttributes],
+      MJPEG_SERVER_SCREENSHOT_QUALITY: @([FBConfiguration mjpegServerScreenshotQuality]),
+      MJPEG_SERVER_FRAMERATE: @([FBConfiguration mjpegServerFramerate]),
+      SCREENSHOT_QUALITY: @([FBConfiguration screenshotQuality]),
     }
   );
 }
@@ -218,14 +229,20 @@
 {
   NSDictionary* settings = request.arguments[@"settings"];
 
-  if ([settings objectForKey:@"shouldUseCompactResponses"]) {
-    BOOL shouldUseCompactResponses = [[settings objectForKey:@"shouldUseCompactResponses"] boolValue];
-    [FBConfiguration setShouldUseCompactResponses:shouldUseCompactResponses];
+  if ([settings objectForKey:USE_COMPACT_RESPONSES]) {
+    [FBConfiguration setShouldUseCompactResponses:[[settings objectForKey:USE_COMPACT_RESPONSES] boolValue]];
   }
-
-  if ([settings objectForKey:@"elementResponseAttributes"]) {
-    NSString* elementResponseAttribute = [settings objectForKey:@"elementResponseAttributes"];
-    [FBConfiguration setElementResponseAttributes:elementResponseAttribute];
+  if ([settings objectForKey:ELEMENT_RESPONSE_ATTRIBUTES]) {
+    [FBConfiguration setElementResponseAttributes:(NSString *)[settings objectForKey:ELEMENT_RESPONSE_ATTRIBUTES]];
+  }
+  if ([settings objectForKey:MJPEG_SERVER_SCREENSHOT_QUALITY]) {
+    [FBConfiguration setMjpegServerScreenshotQuality:[[settings objectForKey:MJPEG_SERVER_SCREENSHOT_QUALITY] unsignedIntegerValue]];
+  }
+  if ([settings objectForKey:MJPEG_SERVER_FRAMERATE]) {
+    [FBConfiguration setMjpegServerFramerate:[[settings objectForKey:MJPEG_SERVER_FRAMERATE] unsignedIntegerValue]];
+  }
+  if ([settings objectForKey:SCREENSHOT_QUALITY]) {
+    [FBConfiguration setScreenshotQuality:[[settings objectForKey:SCREENSHOT_QUALITY] unsignedIntegerValue]];
   }
 
   return [self handleGetSettings:request];

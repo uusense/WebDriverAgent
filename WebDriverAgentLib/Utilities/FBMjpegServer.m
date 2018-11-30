@@ -47,7 +47,7 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
   if ((self = [super init])) {
     _activeClients = [NSMutableArray array];
     _backgroundQueue = dispatch_queue_create(QUEUE_NAME, DISPATCH_QUEUE_SERIAL);
-    if (![self.class canStreamScreenshots]) {
+    if (![self.class canStreamScreenshots] && ![self.class canScheduleTimerBlock]) {
       [FBLogger log:@"MJPEG server cannot start because the current iOS version is not supported"];
       Class xcScreenClass = objc_lookUpClass("XCUIScreen");
       self.mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
@@ -87,15 +87,8 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
   }
   self.currentFramerate = framerate;
   NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
-  self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval
-                                                   repeats:YES
-                                                     block:^(NSTimer * _Nonnull timer) {
-                                                       if (self.currentFramerate == FBConfiguration.mjpegServerFramerate) {
-                                                         [self streamScreenshot2];
-                                                       } else {
-                                                         [self resetTimer:FBConfiguration.mjpegServerFramerate];
-                                                       }
-                                                     }];
+  __weak typeof(self)weak_self = self;
+  self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval target:weak_self selector:@selector(streamScreenshot2) userInfo:nil repeats:YES];
 }
 
 - (void)streamScreenshot
@@ -170,17 +163,23 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
   static dispatch_once_t onceCanStream;
   static BOOL result;
   dispatch_once(&onceCanStream, ^{
-    result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
+    result = [NSTimer respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
+  });
+  return result;
+}
+
++ (BOOL)canScheduleTimerBlock
+{
+  static dispatch_once_t canSTB;
+  static BOOL result;
+  dispatch_once(&canSTB, ^{
+    result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(scheduledTimerWithTimeInterval:repeats:block:)];
   });
   return result;
 }
 
 - (void)didClientConnect:(GCDAsyncSocket *)newClient activeClients:(NSArray<GCDAsyncSocket *> *)activeClients
 {
-//  if (![self.class canStreamScreenshots]) {
-//    return;
-//  }
-
   dispatch_async(self.backgroundQueue, ^{
     NSString *streamHeader = [NSString stringWithFormat:@"HTTP/1.0 200 OK\r\nServer: %@\r\nConnection: close\r\nMax-Age: 0\r\nExpires: 0\r\nCache-Control: no-cache, private\r\nPragma: no-cache\r\nContent-Type: multipart/x-mixed-replace; boundary=--BoundaryString\r\n\r\n", SERVER_NAME];
     [newClient writeData:(id)[streamHeader dataUsingEncoding:NSUTF8StringEncoding] withTimeout:-1 tag:0];
@@ -194,10 +193,6 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
 
 - (void)didClientDisconnect:(NSArray<GCDAsyncSocket *> *)activeClients
 {
-//  if (![self.class canStreamScreenshots]) {
-//    return;
-//  }
-
   @synchronized (self.activeClients) {
     [self.activeClients removeAllObjects];
     [self.activeClients addObjectsFromArray:activeClients];

@@ -163,7 +163,7 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
   static dispatch_once_t onceCanStream;
   static BOOL result;
   dispatch_once(&onceCanStream, ^{
-    result = [NSTimer respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
+    result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
   });
   return result;
 }
@@ -173,7 +173,7 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
   static dispatch_once_t canSTB;
   static BOOL result;
   dispatch_once(&canSTB, ^{
-    result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(scheduledTimerWithTimeInterval:repeats:block:)];
+    result = [NSTimer respondsToSelector:@selector(scheduledTimerWithTimeInterval:repeats:block:)];
   });
   return result;
 }

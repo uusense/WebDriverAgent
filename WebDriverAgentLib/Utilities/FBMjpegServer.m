@@ -47,16 +47,21 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
   if ((self = [super init])) {
     _activeClients = [NSMutableArray array];
     _backgroundQueue = dispatch_queue_create(QUEUE_NAME, DISPATCH_QUEUE_SERIAL);
-    if (![self.class canStreamScreenshots] && ![self.class canScheduleTimerBlock]) {
+    Class xcScreenClass = objc_lookUpClass("XCUIScreen");
+    self.mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
+    XCUIApplication *app = FBApplication.fb_activeApplication;
+    CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
+    self.screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
+    if (![self.class canStreamScreenshots]) {
+      if (![self.class canScheduleTimerBlock]) {
+        [self resetTimer2:FBConfiguration.mjpegServerFramerate];
+        return self;
+      }
       [FBLogger log:@"MJPEG server cannot start because the current iOS version is not supported"];
-      Class xcScreenClass = objc_lookUpClass("XCUIScreen");
-      self.mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
-      XCUIApplication *app = FBApplication.fb_activeApplication;
-      CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
-      self.screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
-      [self resetTimer2:FBConfiguration.mjpegServerFramerate];
+      [self resetTimer3:FBConfiguration.mjpegServerFramerate];
       return self;
     }
+
     [self resetTimer:FBConfiguration.mjpegServerFramerate];
   }
   return self;
@@ -89,6 +94,24 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
   NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
   __weak typeof(self)weak_self = self;
   self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval target:weak_self selector:@selector(streamScreenshot2) userInfo:nil repeats:YES];
+}
+
+- (void)resetTimer3:(NSUInteger)framerate
+{
+  if (self.mainTimer && self.mainTimer.valid) {
+    [self.mainTimer invalidate];
+  }
+  self.currentFramerate = framerate;
+  NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
+  self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval
+                                                   repeats:YES
+                                                     block:^(NSTimer * _Nonnull timer) {
+                                                       if (self.currentFramerate == FBConfiguration.mjpegServerFramerate) {
+                                                         [self streamScreenshot2];
+                                                       } else {
+                                                         [self resetTimer3:FBConfiguration.mjpegServerFramerate];
+                                                       }
+                                                     }];
 }
 
 - (void)streamScreenshot

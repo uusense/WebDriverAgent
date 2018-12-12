@@ -66,6 +66,8 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 
 @end
 
+extern NSString* CTSettingCopyMyPhoneNumber(void);
+
 @implementation UUElementCommands
 
 #pragma mark - <FBCommandHandler>
@@ -270,12 +272,11 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uuHandleTap:(FBRouteRequest *)request {
+  NSString *phone = CTSettingCopyMyPhoneNumber();
+  NSLog(@"%@", phone);
   CGPoint tapPoint = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
-  dispatch_semaphore_t sema = dispatch_semaphore_create(0);
   [[XCEventGenerator sharedGenerator] pressAtPoint:tapPoint forDuration:0 orientation:UIInterfaceOrientationPortrait handler:^(XCSynthesizedEventRecord *record, NSError *error) {
-      dispatch_semaphore_signal(sema);
   }];
-  dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)));
   return FBResponseWithOK();
 }
 

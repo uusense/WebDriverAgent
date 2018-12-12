@@ -27,6 +27,7 @@
 		18894085215383DF00491471 /* NetWorkInfoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 1889407D215383DF00491471 /* NetWorkInfoManager.m */; };
 		1889408A21539BFE00491471 /* UUResponsePicPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = 1889408821539BFE00491471 /* UUResponsePicPayload.m */; };
 		1889408B21539BFE00491471 /* UUResponsePicPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = 1889408921539BFE00491471 /* UUResponsePicPayload.h */; };
+		18B3CA3B21BE655D00E78392 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B3CA3A21BE655C00E78392 /* CoreTelephony.framework */; };
 		1FC3B2E32121ECF600B61EE0 /* FBApplicationProcessProxyTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 1FC3B2E12121EC8C00B61EE0 /* FBApplicationProcessProxyTests.m */; };
 		710181F8211DF584002FD3A8 /* CocoaAsyncSocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */; };
 		71018201211DF62C002FD3A8 /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 71018200211DF62C002FD3A8 /* libxml2.tbd */; };
@@ -490,6 +491,7 @@
 		1889407D215383DF00491471 /* NetWorkInfoManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NetWorkInfoManager.m; sourceTree = "<group>"; };
 		1889408821539BFE00491471 /* UUResponsePicPayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UUResponsePicPayload.m; sourceTree = "<group>"; };
 		1889408921539BFE00491471 /* UUResponsePicPayload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UUResponsePicPayload.h; sourceTree = "<group>"; };
+		18B3CA3A21BE655C00E78392 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
 		1BA7DD8C206D694B007C7C26 /* XCTElementSetTransformer-Protocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "XCTElementSetTransformer-Protocol.h"; sourceTree = "<group>"; };
 		1FC3B2E12121EC8C00B61EE0 /* FBApplicationProcessProxyTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FBApplicationProcessProxyTests.m; sourceTree = "<group>"; };
 		44757A831D42CE8300ECF35E /* XCUIDeviceRotationTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = XCUIDeviceRotationTests.m; sourceTree = "<group>"; };
@@ -859,6 +861,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18B3CA3B21BE655D00E78392 /* CoreTelephony.framework in Frameworks */,
 				71018201211DF62C002FD3A8 /* libxml2.tbd in Frameworks */,
 				7101820D211E026B002FD3A8 /* libAccessibility.tbd in Frameworks */,
 				AD35D0641CF1C2C300870A75 /* RoutingHTTPServer.framework in Frameworks */,
@@ -1025,6 +1028,7 @@
 		B6E83A410C45944B036B6B0F /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				18B3CA3A21BE655C00E78392 /* CoreTelephony.framework */,
 				710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */,
 				E456BF72206BC17F00963F9F /* YYCache.framework */,
 				AD42DD2B1CF1238500806E5D /* RoutingHTTPServer.framework */,

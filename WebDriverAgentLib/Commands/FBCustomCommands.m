@@ -273,10 +273,10 @@
   CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
   CTCarrier *carinfo = info.subscriberCellularProvider;
   return FBResponseWithStatus(FBCommandStatusNoError, @{
-                                                        @"name": carinfo.carrierName?:@"",
+                                                        @"Name": carinfo.carrierName?:@"",
                                                         @"MNC": carinfo.mobileNetworkCode?:@"",
-                                                        @"isoCountryCode": carinfo.isoCountryCode?:@"",
-                                                        @"mobileCountryCode": carinfo.mobileCountryCode?:@"",
+                                                        @"ISOCountryCode": carinfo.isoCountryCode?:@"",
+                                                        @"MCC": carinfo.mobileCountryCode?:@"",
                                                         });
 }
 

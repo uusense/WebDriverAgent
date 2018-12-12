@@ -27,6 +27,8 @@
 		18894085215383DF00491471 /* NetWorkInfoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 1889407D215383DF00491471 /* NetWorkInfoManager.m */; };
 		1889408A21539BFE00491471 /* UUResponsePicPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = 1889408821539BFE00491471 /* UUResponsePicPayload.m */; };
 		1889408B21539BFE00491471 /* UUResponsePicPayload.h in Headers */ = {isa = PBXBuildFile; fileRef = 1889408921539BFE00491471 /* UUResponsePicPayload.h */; };
+		18AF38FE21C0B0EF0014AD1A /* Reachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 18AF38FC21C0B0EE0014AD1A /* Reachability.m */; };
+		18AF38FF21C0B0EF0014AD1A /* Reachability.h in Headers */ = {isa = PBXBuildFile; fileRef = 18AF38FD21C0B0EF0014AD1A /* Reachability.h */; };
 		18B3CA3B21BE655D00E78392 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B3CA3A21BE655C00E78392 /* CoreTelephony.framework */; };
 		1FC3B2E32121ECF600B61EE0 /* FBApplicationProcessProxyTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 1FC3B2E12121EC8C00B61EE0 /* FBApplicationProcessProxyTests.m */; };
 		710181F8211DF584002FD3A8 /* CocoaAsyncSocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */; };
@@ -491,6 +493,8 @@
 		1889407D215383DF00491471 /* NetWorkInfoManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NetWorkInfoManager.m; sourceTree = "<group>"; };
 		1889408821539BFE00491471 /* UUResponsePicPayload.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UUResponsePicPayload.m; sourceTree = "<group>"; };
 		1889408921539BFE00491471 /* UUResponsePicPayload.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UUResponsePicPayload.h; sourceTree = "<group>"; };
+		18AF38FC21C0B0EE0014AD1A /* Reachability.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Reachability.m; sourceTree = "<group>"; };
+		18AF38FD21C0B0EF0014AD1A /* Reachability.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Reachability.h; sourceTree = "<group>"; };
 		18B3CA3A21BE655C00E78392 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
 		1BA7DD8C206D694B007C7C26 /* XCTElementSetTransformer-Protocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "XCTElementSetTransformer-Protocol.h"; sourceTree = "<group>"; };
 		1FC3B2E12121EC8C00B61EE0 /* FBApplicationProcessProxyTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FBApplicationProcessProxyTests.m; sourceTree = "<group>"; };
@@ -945,6 +949,8 @@
 		18894075215383DF00491471 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				18AF38FD21C0B0EF0014AD1A /* Reachability.h */,
+				18AF38FC21C0B0EE0014AD1A /* Reachability.m */,
 				18894076215383DF00491471 /* BatteryInfoManager.h */,
 				18894077215383DF00491471 /* BatteryInfoManager.m */,
 				18894078215383DF00491471 /* DeviceDataLibrery.h */,
@@ -1583,6 +1589,7 @@
 				EE35AD411E3B77D600A02D78 /* XCTestCase.h in Headers */,
 				EE35AD391E3B77D600A02D78 /* XCSymbolicatorHolder.h in Headers */,
 				1889406F2153835800491471 /* UURandom.h in Headers */,
+				18AF38FF21C0B0EF0014AD1A /* Reachability.h in Headers */,
 				EE35AD6B1E3B77D600A02D78 /* XCUIApplicationImpl.h in Headers */,
 				EE35AD201E3B77D600A02D78 /* UIPanGestureRecognizer-RecordingAdditions.h in Headers */,
 				71555A3D1DEC460A007D4A8B /* NSExpression+FBFormat.h in Headers */,
@@ -1990,6 +1997,7 @@
 				AD6C269D1CF2494200F8B5FF /* XCUIApplication+FBHelpers.m in Sources */,
 				EE3A18671CDE734B00DE4205 /* FBKeyboard.m in Sources */,
 				713C6DD01DDC772A00285B92 /* FBElementUtils.m in Sources */,
+				18AF38FE21C0B0EF0014AD1A /* Reachability.m in Sources */,
 				7140974C1FAE1B51008FB2C5 /* FBW3CActionsSynthesizer.m in Sources */,
 				EE158AFA1CBD456F00A3E3F0 /* FBApplicationProcessProxy.m in Sources */,
 				EE6A893B1D0B38640083E92B /* FBFailureProofTestCase.m in Sources */,
@@ -2365,6 +2373,32 @@
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Weverything",
+					"-Wno-objc-missing-property-synthesis",
+					"-Wno-unused-macros",
+					"-Wno-disabled-macro-expansion",
+					"-Wno-gnu-statement-expression",
+					"-Wno-language-extension-token",
+					"-Wno-overriding-method-mismatch",
+					"-Wno-missing-variable-declarations",
+					"-Rno-module-build",
+					"-Wno-auto-import",
+					"-Wno-objc-interface-ivars",
+					"-Wno-documentation-unknown-command",
+					"-Wno-reserved-id-macro",
+					"-Wno-unused-parameter",
+					"-Wno-gnu-conditional-omitted-operand",
+					"-Wno-explicit-ownership-type",
+					"-Wno-date-time",
+					"-Wno-cast-align",
+					"-Wno-cstring-format-directive",
+					"-Wno-double-promotion",
+					"-Wno-partial-availability",
+					"-Wnonnull",
+					"-Wdirect-ivar-access",
+				);
 			};
 			name = Debug;
 		};
@@ -2394,6 +2428,32 @@
 				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Weverything",
+					"-Wno-objc-missing-property-synthesis",
+					"-Wno-unused-macros",
+					"-Wno-disabled-macro-expansion",
+					"-Wno-gnu-statement-expression",
+					"-Wno-language-extension-token",
+					"-Wno-overriding-method-mismatch",
+					"-Wno-missing-variable-declarations",
+					"-Rno-module-build",
+					"-Wno-auto-import",
+					"-Wno-objc-interface-ivars",
+					"-Wno-documentation-unknown-command",
+					"-Wno-reserved-id-macro",
+					"-Wno-unused-parameter",
+					"-Wno-gnu-conditional-omitted-operand",
+					"-Wno-explicit-ownership-type",
+					"-Wno-date-time",
+					"-Wno-cast-align",
+					"-Wno-cstring-format-directive",
+					"-Wno-double-promotion",
+					"-Wno-partial-availability",
+					"-Wnonnull",
+					"-Wdirect-ivar-access",
+				);
 			};
 			name = Release;
 		};

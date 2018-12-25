@@ -148,7 +148,7 @@ static bool fb_isLocked;
   XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
   
   NSData *result = nil;
-  if ( [[UIDevice currentDevice].systemVersion doubleValue] <= 11 ) {
+  if ( [[UIDevice currentDevice].systemVersion doubleValue] <= 9.5 ) {
     result = [[mainScreen screenshot] PNGRepresentation];
   } else {
     result = [mainScreen screenshotDataForQuality:quality rect:screenRect error:error];

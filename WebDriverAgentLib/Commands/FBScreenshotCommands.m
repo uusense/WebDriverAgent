@@ -89,10 +89,13 @@
   NSString *type = request.arguments[@"type"];
   NSData *screenshotData = nil;
   Class xcScreenClass = objc_lookUpClass("XCUIScreen");
-  XCUIApplication *application = FBApplication.fb_activeApplication;
-  if (application) {
-    
+  if (xcScreenClass == nil) {
+    return FBResponseWithErrorFormat(@"Screen shot failed, XCUIScreen is nil");
   }
+//  XCUIApplication *application = FBApplication.fb_activeApplication;
+//  if (application) {
+//
+//  }
   NSUInteger quality = 2;
   CGRect screenRect = CGRectZero;
   
@@ -112,9 +115,10 @@
   } else {
     screenshotData = [mainScreen screenshotDataForQuality:quality rect:screenRect error:&error];
   }
-  if (nil == screenshotData) {
-    return nil;
+  if (nil == screenshotData || error) {
+    return FBResponseWithErrorFormat(@"Screen shot failed, screenshotData is nil");
   }
+  
   if ([type isEqualToString:@"PNG"]) {
     return UUResponseWithPNG(screenshotData);
   } else {

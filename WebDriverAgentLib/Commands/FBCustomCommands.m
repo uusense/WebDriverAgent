@@ -58,6 +58,8 @@
     [[FBRoute POST:@"/wda/siri/activate"] respondWithTarget:self action:@selector(handleActivateSiri:)],
     [[FBRoute GET:@"/wda/netType"].withoutSession respondWithTarget:self action:@selector(handleGetNetType:)],
     [[FBRoute GET:@"/wda/netBrand"].withoutSession respondWithTarget:self action:@selector(handleGetNetBrand:)],
+    [[FBRoute POST:@"/wda/uuGet"].withoutSession respondWithTarget:self action:@selector(handleUuGet:)],
+    [[FBRoute POST:@"/wda/uuPost"].withoutSession respondWithTarget:self action:@selector(handleUuPost:)],
   ];
 }
 
@@ -278,6 +280,83 @@
                                                         @"ISOCountryCode": carinfo.isoCountryCode?:@"",
                                                         @"MCC": carinfo.mobileCountryCode?:@"",
                                                         });
+}
+
++ (id<FBResponsePayload>)handleUuGet:(FBRouteRequest *)request
+{
+  NSString *urlStr     = request.arguments[@"url"];
+  NSTimeInterval timeOut = [request.arguments[@"timeout"] doubleValue];
+  timeOut = (timeOut <= 0 ) ? 1 : timeOut;
+  NSURL *url = [NSURL URLWithString:urlStr];
+  NSURLRequest *req = [NSURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:timeOut];
+  NSURLSession *session = [NSURLSession sharedSession];
+  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+  __block NSError *errorInfo = nil;
+  __block NSString *ret = nil;
+  NSURLSessionDataTask *dataTask = [session dataTaskWithRequest:req completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+    if (error) {
+      errorInfo = error;
+    }
+    @try {
+      if (data) {
+        NSData *dataTmp = data;
+        ret = [[NSString alloc] initWithData:dataTmp encoding:NSUTF8StringEncoding];
+      }
+    } @catch (NSException *exception) {
+      NSLog(@"%@", [exception description]);
+    }
+    dispatch_semaphore_signal(semaphore);
+  }];
+  [dataTask resume];
+  dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeOut * NSEC_PER_SEC)));
+  if (errorInfo) {
+    return FBResponseWithError(errorInfo);
+  } else {
+    return FBResponseWithStatus(FBCommandStatusNoError, @{@"response": ret ?: @""});
+  }
+}
+
++ (id<FBResponsePayload>)handleUuPost:(FBRouteRequest *)request
+{
+  NSString *urlStr     = request.arguments[@"url"];
+  NSTimeInterval timeOut = [request.arguments[@"timeout"] doubleValue];
+  timeOut = (timeOut <= 0 ) ? 1 : timeOut;
+  NSDictionary *params = request.arguments[@"params"];
+  NSURL *url = [NSURL URLWithString:urlStr];
+  NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:timeOut];
+  req.HTTPMethod = @"POST";
+  [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+  NSError *paramError = nil;
+  if (params) {
+    NSData *bodyData = [NSJSONSerialization dataWithJSONObject:params options:NSJSONWritingPrettyPrinted error:&paramError];
+    if(nil == paramError && nil != bodyData)
+      [req setHTTPBody:bodyData];
+  }
+  NSURLSession *session = [NSURLSession sharedSession];
+  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+  __block NSError *errorInfo = nil;
+  __block NSString *ret = nil;
+  NSURLSessionDataTask *dataTask = [session dataTaskWithRequest:req completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+    if (error) {
+      errorInfo = error;
+    }
+    @try {
+      if (data) {
+        NSData *dataTmp = data;
+        ret = [[NSString alloc] initWithData:dataTmp encoding:NSUTF8StringEncoding];
+      }
+    } @catch (NSException *exception) {
+      NSLog(@"%@", [exception description]);
+    }
+    dispatch_semaphore_signal(semaphore);
+  }];
+  [dataTask resume];
+  dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeOut * NSEC_PER_SEC)));
+  if (errorInfo) {
+    return FBResponseWithError(errorInfo);
+  } else {
+    return FBResponseWithStatus(FBCommandStatusNoError, @{@"response": ret ?: @""});
+  }
 }
 
 @end

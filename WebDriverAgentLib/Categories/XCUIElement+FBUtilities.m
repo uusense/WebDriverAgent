@@ -18,9 +18,9 @@
 #import "FBMathUtils.h"
 #import "FBPredicate.h"
 #import "FBRunLoopSpinner.h"
+#import "FBXCAXClientProxy.h"
 #import "FBXCodeCompatibility.h"
 #import "FBXCTestDaemonsProxy.h"
-#import "XCAXClient_iOS.h"
 #import "XCTElementSetTransformer-Protocol.h"
 #import "XCTestManager_ManagerInterface-Protocol.h"
 #import "XCTestPrivateSymbols.h"
@@ -31,7 +31,7 @@
 
 @implementation XCUIElement (FBUtilities)
 
-static const NSTimeInterval FBANIMATION_TIMEOUT = 5.0;
+static const NSTimeInterval FB_ANIMATION_TIMEOUT = 5.0;
 
 - (BOOL)fb_waitUntilFrameIsStable
 {
@@ -88,7 +88,7 @@ static const NSTimeInterval AX_TIMEOUT = 15.;
   
   static dispatch_once_t initializeAttributesAndParametersToken;
   dispatch_once(&initializeAttributesAndParametersToken, ^{
-    defaultParameters = [[XCAXClient_iOS sharedClient] defaultParameters];
+    defaultParameters = [FBXCAXClientProxy.sharedClient defaultParameters];
     // Names of the properties to load. There won't be lazy loading for missing properties,
     // thus missing properties will lead to wrong results
     NSArray<NSString *> *propertyNames = @[
@@ -108,6 +108,9 @@ static const NSTimeInterval AX_TIMEOUT = 15.;
       if (![axAttributes containsObject:FB_XCAXAIsVisibleAttribute]) {
         axAttributes = [axAttributes arrayByAddingObject:FB_XCAXAIsVisibleAttribute];
       }
+      if (![axAttributes containsObject:FB_XCAXAIsElementAttribute]) {
+        axAttributes = [axAttributes arrayByAddingObject:FB_XCAXAIsElementAttribute];
+      }
     }
   });
 
@@ -119,19 +122,21 @@ static const NSTimeInterval AX_TIMEOUT = 15.;
   __block NSError *innerError = nil;
   id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
   dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-  [proxy _XCT_setAXTimeout:AX_TIMEOUT reply:^(int res) {
-    [proxy _XCT_snapshotForElement:self.lastSnapshot.accessibilityElement
-                        attributes:axAttributes
-                        parameters:defaultParameters
-                             reply:^(XCElementSnapshot *snapshot, NSError *error) {
-                               if (nil == error) {
-                                 snapshotWithAttributes = snapshot;
-                               } else {
-                                 innerError = error;
-                               }
-                               dispatch_semaphore_signal(sem);
-                             }];
-  }];
+  [FBXCTestDaemonsProxy tryToSetAxTimeout:AX_TIMEOUT
+                                 forProxy:proxy
+                              withHandler:^(int res) {
+                                [proxy _XCT_snapshotForElement:self.lastSnapshot.accessibilityElement
+                                                    attributes:axAttributes
+                                                    parameters:defaultParameters
+                                                         reply:^(XCElementSnapshot *snapshot, NSError *error) {
+                                                           if (nil == error) {
+                                                             snapshotWithAttributes = snapshot;
+                                                           } else {
+                                                             innerError = error;
+                                                           }
+                                                           dispatch_semaphore_signal(sem);
+                                                         }];
+                              }];
   dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(AX_TIMEOUT * NSEC_PER_SEC)));
   if (nil == snapshotWithAttributes) {
     [FBLogger logFmt:@"Getting the snapshot timed out after %@ seconds", @(AX_TIMEOUT)];
@@ -212,15 +217,16 @@ static const NSTimeInterval AX_TIMEOUT = 15.;
 - (BOOL)fb_waitUntilSnapshotIsStable
 {
   dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-  [[XCAXClient_iOS sharedClient] notifyWhenNoAnimationsAreActiveForApplication:self.application reply:^{dispatch_semaphore_signal(sem);}];
-  dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(FBANIMATION_TIMEOUT * NSEC_PER_SEC));
+  [FBXCAXClientProxy.sharedClient notifyWhenNoAnimationsAreActiveForApplication:self.application reply:^{dispatch_semaphore_signal(sem);}];
+  dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(FB_ANIMATION_TIMEOUT * NSEC_PER_SEC));
   BOOL result = 0 == dispatch_semaphore_wait(sem, timeout);
   if (!result) {
-    [FBLogger logFmt:@"There are still some active animations in progress after %.2f seconds timeout. Visibility detection may cause unexpected delays.", FBANIMATION_TIMEOUT];
+    [FBLogger logFmt:@"The applicaion has still not finished animations after %.2f seconds timeout", FB_ANIMATION_TIMEOUT];
   }
   return result;
 }
 
+#if !TARGET_OS_TV
 - (NSData *)fb_screenshotWithError:(NSError **)error
 {
   if (CGRectIsEmpty(self.frame)) {
@@ -263,5 +269,6 @@ static const NSTimeInterval AX_TIMEOUT = 15.;
   }
   return FBAdjustScreenshotOrientationForApplication(imageData, orientation);
 }
+#endif
 
 @end

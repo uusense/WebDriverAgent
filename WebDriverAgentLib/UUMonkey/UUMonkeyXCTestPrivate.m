@@ -24,7 +24,8 @@
         CGRect rect               = [strongSelf randomRect];
         CGPoint tapPoint          = [strongSelf randomPointInRect:rect];
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-        [[XCEventGenerator sharedGenerator] pressAtPoint:tapPoint forDuration:0 orientation:orientationValue handler:^(XCSynthesizedEventRecord *record, NSError *error) {
+//        [[XCEventGenerator sharedGenerator] pressAtPoint:tapPoint forDuration:0 orientation:orientationValue handler:^(XCSynthesizedEventRecord *record, NSError *error) {
+      [[NSClassFromString(@"XCEventGenerator") sharedGenerator] pressAtPoint:tapPoint forDuration:0 orientation:orientationValue handler:^(XCSynthesizedEventRecord *record, NSError *error) {
           dispatch_semaphore_signal(sema);
         }];
         dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)));
@@ -41,7 +42,7 @@
     __strong __typeof(self) strongSelf = weakself;
     CGPoint point = [strongSelf randomPoint];
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    [[XCEventGenerator sharedGenerator] pressAtPoint:point forDuration:0.5 orientation:orientationValue handler:^(XCSynthesizedEventRecord *record, NSError *error) {
+    [[NSClassFromString(@"XCEventGenerator") sharedGenerator] pressAtPoint:point forDuration:0.5 orientation:orientationValue handler:^(XCSynthesizedEventRecord *record, NSError *error) {
       dispatch_semaphore_signal(sema);
     }];
     dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)));
@@ -55,7 +56,7 @@
     CGPoint start = [strongSelf randomPointAvoidingPanelAreas];
     CGPoint end = [strongSelf randomPoint];
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    [[XCEventGenerator sharedGenerator] pressAtPoint:start forDuration:0 liftAtPoint:end velocity:1000 orientation:orientationValue name:@"Monkey drag" handler:^(XCSynthesizedEventRecord *record, NSError *error) {
+    [[NSClassFromString(@"XCEventGenerator") sharedGenerator] pressAtPoint:start forDuration:0 liftAtPoint:end velocity:1000 orientation:orientationValue name:@"Monkey drag" handler:^(XCSynthesizedEventRecord *record, NSError *error) {
       dispatch_semaphore_signal(sema);
     }];
     dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)));

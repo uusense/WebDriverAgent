@@ -49,6 +49,9 @@
 #import "XCUIApplication+FBHelpers.h"
 #import "DeviceInfoManager.h"
 
+#import "XCTestDriver.h"
+#import "XCTRunnerDaemonSession.h"
+
 #import "FBAlert.h"
 
 #import "UUMonkey.h"
@@ -242,7 +245,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   CGPoint touchPoint        = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
   double duration           = [request.arguments[@"duration"] doubleValue];
   dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-  [[XCEventGenerator sharedGenerator] pressAtPoint:touchPoint forDuration:[request.arguments[@"duration"] doubleValue] orientation:UIInterfaceOrientationPortrait handler:^(XCSynthesizedEventRecord *record, NSError *error) {
+  [[NSClassFromString(@"XCEventGenerator") sharedGenerator] pressAtPoint:touchPoint forDuration:[request.arguments[@"duration"] doubleValue] orientation:UIInterfaceOrientationPortrait handler:^(XCSynthesizedEventRecord *record, NSError *error) {
     dispatch_semaphore_signal(sema);
   }];
   dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)));
@@ -262,7 +265,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   double distance           = sqrt(deltaX*deltaX + deltaY*deltaY);
   double dragTime           = distance / velocity;
   dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-  [[XCEventGenerator sharedGenerator] pressAtPoint:startPoint forDuration:duration liftAtPoint:endPoint velocity:velocity orientation:UIInterfaceOrientationPortrait name:@"uuHandleDrag" handler:^(XCSynthesizedEventRecord *record, NSError *error) {
+  [[NSClassFromString(@"XCEventGenerator") sharedGenerator] pressAtPoint:startPoint forDuration:duration liftAtPoint:endPoint velocity:velocity orientation:UIInterfaceOrientationPortrait name:@"uuHandleDrag" handler:^(XCSynthesizedEventRecord *record, NSError *error) {
     dispatch_semaphore_signal(sema);
   }];
   dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)((duration + dragTime + 0.1) * NSEC_PER_SEC)));
@@ -271,9 +274,41 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 
 + (id<FBResponsePayload>)uuHandleTap:(FBRouteRequest *)request {
   CGPoint tapPoint = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
-  [[XCEventGenerator sharedGenerator] pressAtPoint:tapPoint forDuration:0 orientation:UIInterfaceOrientationPortrait handler:^(XCSynthesizedEventRecord *record, NSError *error) {
-  }];
+  
+  
+  XCPointerEventPath *eventPath = [[XCPointerEventPath alloc] initForTouchAtPoint:tapPoint offset:0.0];
+  [eventPath liftUpAtOffset: 0.01f];
+  XCSynthesizedEventRecord *event =
+  [[XCSynthesizedEventRecord alloc]
+   initWithName:[NSString stringWithFormat:@"Tap on %@", NSStringFromCGPoint(tapPoint)]
+   interfaceOrientation:UIInterfaceOrientationPortrait];
+  [event addPointerEventPath:eventPath];
+  void (^errorHandler)(NSError *) = ^(NSError *invokeError) {
+  };
+  
+  Class FBXCTRunnerDaemonSessionClass = nil;
+  FBXCTRunnerDaemonSessionClass = objc_lookUpClass("XCTRunnerDaemonSession");
+  
+  if (nil == FBXCTRunnerDaemonSessionClass) {
+    id<XCTestManager_ManagerInterface> proxy = nil;
+    if ([[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
+      proxy = [XCTestDriver sharedTestDriver].managerProxy;
+    } else {
+      proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
+    }
+    [proxy _XCT_synthesizeEvent:event completion:errorHandler];
+  } else {
+    if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {
+      [[XCUIDevice.sharedDevice eventSynthesizer] synthesizeEvent:event completion:(id)^(BOOL result, NSError *invokeError) {
+      }];
+    } else {
+      [[FBXCTRunnerDaemonSessionClass sharedSession] synthesizeEvent:event completion:^(NSError *invokeError){
+      }];
+    }
+  }  
+
   return FBResponseWithOK();
+
 }
 
 + (id<FBResponsePayload>)uuHandleForceTouch:(FBRouteRequest *)request {

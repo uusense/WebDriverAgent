@@ -432,9 +432,10 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     XCUIApplication *application = [UUMonkeySingleton sharedInstance].application;
     if (nil == application) {
       [UUMonkeySingleton sharedInstance].application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
+      application = [UUMonkeySingleton sharedInstance].application;
     }
     NSInteger monkeyIterations = [request.arguments[@"monkeyIterations"] integerValue];
-    if (application == nil) {
+    if ([UUMonkeySingleton sharedInstance].application == nil) {
       return FBResponseWithErrorFormat(@"Cannot get the current application");
     }
     if (nil == [UUMonkeySingleton sharedInstance].monkey) {

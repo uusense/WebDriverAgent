@@ -6,8 +6,18 @@
 //  Copyright © 2018年 刘 晓东. All rights reserved.
 //
 
+#import <objc/runtime.h>
+
 #import "UUMonkeyXCTestPrivate.h"
 #import "XCEventGenerator.h"
+
+#import "FBRunLoopSpinner.h"
+#import "XCPointerEventPath.h"
+#import "XCSynthesizedEventRecord.h"
+#import "FBXCTestDaemonsProxy.h"
+#import "XCTestDriver.h"
+#import "XCUIDevice.h"
+#import "XCTRunnerDaemonSession.h"
 
 @implementation UUMonkey (MonkeyXCTestPrivate)
 
@@ -23,12 +33,46 @@
         __strong __typeof(self) strongSelf = weakself;
         CGRect rect               = [strongSelf randomRect];
         CGPoint tapPoint          = [strongSelf randomPointInRect:rect];
-        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-//        [[XCEventGenerator sharedGenerator] pressAtPoint:tapPoint forDuration:0 orientation:orientationValue handler:^(XCSynthesizedEventRecord *record, NSError *error) {
-      [[NSClassFromString(@"XCEventGenerator") sharedGenerator] pressAtPoint:tapPoint forDuration:0 orientation:orientationValue handler:^(XCSynthesizedEventRecord *record, NSError *error) {
-          dispatch_semaphore_signal(sema);
-        }];
-        dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)));
+      
+      __block BOOL didSucceed;
+      [FBRunLoopSpinner spinUntilCompletion:^(void(^completion)(void)){
+          XCEventGeneratorHandler handlerBlock = ^(XCSynthesizedEventRecord *record, NSError *commandError) {
+            didSucceed = (commandError == nil);
+            completion();
+          };
+          XCPointerEventPath *eventPath = [[XCPointerEventPath alloc] initForTouchAtPoint:tapPoint offset:0.0];
+          [eventPath liftUpAtOffset: 0.01f];
+          XCSynthesizedEventRecord *event =
+          [[XCSynthesizedEventRecord alloc]
+           initWithName:[NSString stringWithFormat:@"Tap on %@", NSStringFromCGPoint(tapPoint)]
+           interfaceOrientation:UIInterfaceOrientationPortrait];
+          [event addPointerEventPath:eventPath];
+        
+         Class FBXCTRunnerDaemonSessionClass = nil;
+         FBXCTRunnerDaemonSessionClass = objc_lookUpClass("XCTRunnerDaemonSession");
+         void (^errorHandler)(NSError *) = ^(NSError *invokeError) {
+           handlerBlock(event, invokeError);
+         };
+         if (nil == FBXCTRunnerDaemonSessionClass) {
+           id<XCTestManager_ManagerInterface> proxy = nil;
+           if ([[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
+             proxy = [XCTestDriver sharedTestDriver].managerProxy;
+           } else {
+             proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
+           }
+           [proxy _XCT_synthesizeEvent:event completion:errorHandler];
+         } else {
+           if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {
+             [[XCUIDevice.sharedDevice eventSynthesizer] synthesizeEvent:event completion:(id)^(BOOL result, NSError *invokeError) {
+               handlerBlock(event, invokeError);
+             }];
+           } else {
+             [[FBXCTRunnerDaemonSessionClass sharedSession] synthesizeEvent:event completion:^(NSError *invokeError){
+               handlerBlock(event, invokeError);
+             }];
+           }
+         }
+      }];
     }];
 }
 
@@ -41,11 +85,46 @@
   [self addActionWithWeight:weight andAction:^{
     __strong __typeof(self) strongSelf = weakself;
     CGPoint point = [strongSelf randomPoint];
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    [[NSClassFromString(@"XCEventGenerator") sharedGenerator] pressAtPoint:point forDuration:0.5 orientation:orientationValue handler:^(XCSynthesizedEventRecord *record, NSError *error) {
-      dispatch_semaphore_signal(sema);
+    
+    __block BOOL didSucceed;
+    [FBRunLoopSpinner spinUntilCompletion:^(void(^completion)(void)){
+      XCEventGeneratorHandler handlerBlock = ^(XCSynthesizedEventRecord *record, NSError *commandError) {
+        didSucceed = (commandError == nil);
+        completion();
+      };
+      XCPointerEventPath *eventPath = [[XCPointerEventPath alloc] initForTouchAtPoint:point offset:0.0];
+      [eventPath liftUpAtOffset: 0.5f];
+      XCSynthesizedEventRecord *event =
+      [[XCSynthesizedEventRecord alloc]
+       initWithName:[NSString stringWithFormat:@"Tap on %@", NSStringFromCGPoint(point)]
+       interfaceOrientation:UIInterfaceOrientationPortrait];
+      [event addPointerEventPath:eventPath];
+      
+      Class FBXCTRunnerDaemonSessionClass = nil;
+      FBXCTRunnerDaemonSessionClass = objc_lookUpClass("XCTRunnerDaemonSession");
+      void (^errorHandler)(NSError *) = ^(NSError *invokeError) {
+        handlerBlock(event, invokeError);
+      };
+      if (nil == FBXCTRunnerDaemonSessionClass) {
+        id<XCTestManager_ManagerInterface> proxy = nil;
+        if ([[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
+          proxy = [XCTestDriver sharedTestDriver].managerProxy;
+        } else {
+          proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
+        }
+        [proxy _XCT_synthesizeEvent:event completion:errorHandler];
+      } else {
+        if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {
+          [[XCUIDevice.sharedDevice eventSynthesizer] synthesizeEvent:event completion:(id)^(BOOL result, NSError *invokeError) {
+            handlerBlock(event, invokeError);
+          }];
+        } else {
+          [[FBXCTRunnerDaemonSessionClass sharedSession] synthesizeEvent:event completion:^(NSError *invokeError){
+            handlerBlock(event, invokeError);
+          }];
+        }
+      }
     }];
-    dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)));
   }];
 }
 
@@ -55,11 +134,46 @@
     __strong __typeof(self) strongSelf = weakself;
     CGPoint start = [strongSelf randomPointAvoidingPanelAreas];
     CGPoint end = [strongSelf randomPoint];
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    [[NSClassFromString(@"XCEventGenerator") sharedGenerator] pressAtPoint:start forDuration:0 liftAtPoint:end velocity:1000 orientation:orientationValue name:@"Monkey drag" handler:^(XCSynthesizedEventRecord *record, NSError *error) {
-      dispatch_semaphore_signal(sema);
+    __block BOOL didSucceed;
+    [FBRunLoopSpinner spinUntilCompletion:^(void(^completion)(void)){
+      XCEventGeneratorHandler handlerBlock = ^(XCSynthesizedEventRecord *record, NSError *commandError) {
+        didSucceed = (commandError == nil);
+        completion();
+      };
+
+      XCPointerEventPath *eventPath = [[XCPointerEventPath alloc] initForTouchAtPoint:start offset:0.0];
+      [eventPath moveToPoint:end atOffset:0.2];
+      [eventPath liftUpAtOffset:0.2];
+      XCSynthesizedEventRecord *event =
+      [[XCSynthesizedEventRecord alloc] initWithName:@"move" interfaceOrientation:UIInterfaceOrientationPortrait];
+      [event addPointerEventPath:eventPath];
+      
+      Class FBXCTRunnerDaemonSessionClass = nil;
+      FBXCTRunnerDaemonSessionClass = objc_lookUpClass("XCTRunnerDaemonSession");
+      void (^errorHandler)(NSError *) = ^(NSError *invokeError) {
+        handlerBlock(event, invokeError);
+      };
+      if (nil == FBXCTRunnerDaemonSessionClass) {
+        id<XCTestManager_ManagerInterface> proxy = nil;
+        if ([[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
+          proxy = [XCTestDriver sharedTestDriver].managerProxy;
+        } else {
+          proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
+        }
+        [proxy _XCT_synthesizeEvent:event completion:errorHandler];
+      } else {
+        if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {
+          [[XCUIDevice.sharedDevice eventSynthesizer] synthesizeEvent:event completion:(id)^(BOOL result, NSError *invokeError) {
+            handlerBlock(event, invokeError);
+          }];
+        } else {
+          [[FBXCTRunnerDaemonSessionClass sharedSession] synthesizeEvent:event completion:^(NSError *invokeError){
+            handlerBlock(event, invokeError);
+          }];
+        }
+      }
     }];
-    dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)));
+    
   }];
 }
 

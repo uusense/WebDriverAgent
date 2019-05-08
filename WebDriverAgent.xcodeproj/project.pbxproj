@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1831C94922817731005D44AA /* STDPingServices.m in Sources */ = {isa = PBXBuildFile; fileRef = 1831C9452281772F005D44AA /* STDPingServices.m */; };
+		1831C94A22817731005D44AA /* SimplePing.m in Sources */ = {isa = PBXBuildFile; fileRef = 1831C94622817730005D44AA /* SimplePing.m */; };
+		1831C94B22817731005D44AA /* STDPingServices.h in Headers */ = {isa = PBXBuildFile; fileRef = 1831C94722817730005D44AA /* STDPingServices.h */; };
+		1831C94C22817731005D44AA /* SimplePing.h in Headers */ = {isa = PBXBuildFile; fileRef = 1831C94822817730005D44AA /* SimplePing.h */; };
 		188940692153835800491471 /* UUMonkey.h in Headers */ = {isa = PBXBuildFile; fileRef = 188940612153835800491471 /* UUMonkey.h */; };
 		1889406A2153835800491471 /* UUMonkey.m in Sources */ = {isa = PBXBuildFile; fileRef = 188940622153835800491471 /* UUMonkey.m */; };
 		1889406B2153835800491471 /* UUMonkeySingleton.h in Headers */ = {isa = PBXBuildFile; fileRef = 188940632153835800491471 /* UUMonkeySingleton.h */; };
@@ -803,6 +807,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1831C9452281772F005D44AA /* STDPingServices.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = STDPingServices.m; sourceTree = "<group>"; };
+		1831C94622817730005D44AA /* SimplePing.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SimplePing.m; sourceTree = "<group>"; };
+		1831C94722817730005D44AA /* STDPingServices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = STDPingServices.h; sourceTree = "<group>"; };
+		1831C94822817730005D44AA /* SimplePing.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SimplePing.h; sourceTree = "<group>"; };
 		18846B3A224E00E6004F005F /* RoutingHTTPServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RoutingHTTPServer.framework; path = Carthage/Build/iOS/RoutingHTTPServer.framework; sourceTree = "<group>"; };
 		188940612153835800491471 /* UUMonkey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UUMonkey.h; sourceTree = "<group>"; };
 		188940622153835800491471 /* UUMonkey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = UUMonkey.m; sourceTree = "<group>"; };
@@ -1317,6 +1325,10 @@
 		18894075215383DF00491471 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				1831C94822817730005D44AA /* SimplePing.h */,
+				1831C94622817730005D44AA /* SimplePing.m */,
+				1831C94722817730005D44AA /* STDPingServices.h */,
+				1831C9452281772F005D44AA /* STDPingServices.m */,
 				18AF38FD21C0B0EF0014AD1A /* Reachability.h */,
 				18AF38FC21C0B0EE0014AD1A /* Reachability.m */,
 				18894076215383DF00491471 /* BatteryInfoManager.h */,
@@ -2129,6 +2141,7 @@
 				719CD8F82126C78F00C7D0C2 /* FBAlertsMonitor.h in Headers */,
 				EE35AD241E3B77D600A02D78 /* XCAccessibilityElement.h in Headers */,
 				EE158AE41CBD456F00A3E3F0 /* FBSession.h in Headers */,
+				1831C94C22817731005D44AA /* SimplePing.h in Headers */,
 				EE35AD0F1E3B77D600A02D78 /* _XCTestImplementation.h in Headers */,
 				71241D7B1FAE3D2500B9559F /* FBTouchActionCommands.h in Headers */,
 				EE158ACA1CBD456F00A3E3F0 /* FBTouchIDCommands.h in Headers */,
@@ -2232,6 +2245,7 @@
 				EE35AD511E3B77D600A02D78 /* XCTestObservation-Protocol.h in Headers */,
 				EE35AD131E3B77D600A02D78 /* _XCTNSPredicateExpectationImplementation.h in Headers */,
 				EE158ABE1CBD456F00A3E3F0 /* FBElementCommands.h in Headers */,
+				1831C94B22817731005D44AA /* STDPingServices.h in Headers */,
 				EE158AD81CBD456F00A3E3F0 /* FBResponseFilePayload.h in Headers */,
 				EE158AF71CBD456F00A3E3F0 /* FBSpringboardApplication.h in Headers */,
 				1889406B2153835800491471 /* UUMonkeySingleton.h in Headers */,
@@ -2788,11 +2802,13 @@
 				1889408A21539BFE00491471 /* UUResponsePicPayload.m in Sources */,
 				EEE376461D59F81400ED88DD /* XCUIElement+FBUtilities.m in Sources */,
 				EE9B76A91CF7A43900275851 /* FBLogger.m in Sources */,
+				1831C94A22817731005D44AA /* SimplePing.m in Sources */,
 				EE158ABB1CBD456F00A3E3F0 /* FBCustomCommands.m in Sources */,
 				AD6C26991CF2481700F8B5FF /* XCUIDevice+FBHelpers.m in Sources */,
 				EE6B64FE1D0F86EF00E85F5D /* XCTestPrivateSymbols.m in Sources */,
 				AD76723E1D6B7CC000610457 /* XCUIElement+FBTyping.m in Sources */,
 				EE158AAF1CBD456F00A3E3F0 /* XCUIElement+FBAccessibility.m in Sources */,
+				1831C94922817731005D44AA /* STDPingServices.m in Sources */,
 				7150348821A6DAD600A0F4BA /* FBImageUtils.m in Sources */,
 				EE158AE51CBD456F00A3E3F0 /* FBSession.m in Sources */,
 				EE158AC11CBD456F00A3E3F0 /* FBFindElementCommands.m in Sources */,

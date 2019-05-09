@@ -58,6 +58,8 @@
 #import "UUMonkeyXCTestPrivate.h"
 #import "UUMonkeySingleton.h"
 
+#import "STDPingServices.h"
+
 #import<sys/sysctl.h>
 #import<mach/mach.h>
 
@@ -100,6 +102,8 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     
     [[FBRoute GET:@"/uusense/lockButton"].withoutSession respondWithTarget:self action:@selector(uu_lockButton:)],
     [[FBRoute POST:@"/uusense/unlockWithOutCheck"].withoutSession respondWithTarget:self action:@selector(handleUnlock:)],
+    
+    [[FBRoute POST:@"/uusense/ping"].withoutSession respondWithTarget:self action:@selector(handlePingCommand:)],
   ];
 }
 
@@ -489,13 +493,53 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     return FBResponseWithOK();
 }
 
-+ (id<FBResponsePayload>)handleUnlock:(FBRouteRequest *)request
-{
++ (id<FBResponsePayload>)handleUnlock:(FBRouteRequest *)request {
   NSError *error;
   if (![[XCUIDevice sharedDevice] uu_unlockScreen:&error]) {
     return FBResponseWithError(error);
   }
   return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handlePingCommand:(FBRouteRequest *)request {
+  NSString *address = request.arguments[@"address"];
+  __block NSInteger count = (NSInteger)[(NSNumber *)request.arguments[@"count"] integerValue];
+  __block NSMutableArray *results = [NSMutableArray array];
+  NSInteger size = (NSInteger)[(NSNumber *)request.arguments[@"size"] integerValue];
+  NSInteger timeout = (NSInteger)[(NSNumber *)request.arguments[@"timeout"] integerValue];
+  
+  if (count <= 0) {
+    return FBResponseWithErrorFormat(@"count is less than 1");
+  }
+  
+  size = size > 8 ? size : 64;
+  timeout = timeout < 3600 ? timeout : 500;
+  
+  [STDPingServices startPingAddress:address
+                            andSize:size
+                         andTimeout:timeout
+                    callbackHandler:^(STDPingItem *pingItem, NSArray *pingItems) {
+      NSLog(@"%@ %ld %f", pingItem.IPAddress, (long)pingItem.timeToLive, pingItem.timeMilliseconds);
+      NSString *info = @"";
+      if (pingItem.status == STDPingStatusFinished || pingItem.status == STDPingStatusError) {
+        count = 0;
+      } else {
+        if (pingItem.status == STDPingStatusDidTimeout) {
+          info = [NSString stringWithFormat:@"%ld,%d,%ld", (long)pingItem.ICMPSequence, -1, (long)pingItem.timeToLive];
+        } else {
+           info = [NSString stringWithFormat:@"%ld,%f,%ld", (long)pingItem.ICMPSequence, pingItem.timeMilliseconds, (long)pingItem.timeToLive];
+        }
+        [results addObject:info];
+        count = count - 1;
+      }
+    }
+   ];
+  
+  do {
+    [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
+  } while (count > 0);
+
+  return FBResponseWithStatus(FBCommandStatusNoError, results);
 }
 
 

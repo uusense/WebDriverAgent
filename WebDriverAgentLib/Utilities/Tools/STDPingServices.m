@@ -95,7 +95,6 @@
     services.callbackHandler = handler;
     [services startPing];
     return services;
-    
 }
 
 - (instancetype)initWithAddress:(NSString *)address {
@@ -176,6 +175,30 @@
     }
     [pinger sendPingWithData:data];
     [self performSelector:@selector(_timeoutActionFired) withObject:nil afterDelay:self.timeoutMilliseconds / 1000.0];
+}
+
+- (void)simplePing:(SimplePing *)pinger didFailWithError:(nonnull NSError *)error {
+  STDPingItem *pingItem = [[STDPingItem alloc] init];
+  pingItem.IPAddress = pinger.IPAddress;
+  pingItem.originalAddress = self.address;
+  pingItem.dateBytesLength = 0;
+  pingItem.status = STDPingStatusError;
+  if (self.callbackHandler) {
+    self.callbackHandler(pingItem, nil);
+  }
+}
+
+- (void)simplePing:(SimplePing *)pinger didFailToSendPacket:(nonnull NSData *)packet sequenceNumber:(uint16_t)sequenceNumber error:(nonnull NSError *)error {
+  STDPingItem *pingItem = [[STDPingItem alloc] init];
+  pingItem.ICMPSequence = sequenceNumber;
+  pingItem.IPAddress = pinger.IPAddress;
+  pingItem.originalAddress = self.address;
+  pingItem.dateBytesLength = packet.length - sizeof(ICMPHeader);
+  pingItem.timeToLive = 0;
+  pingItem.timeMilliseconds = -1;
+  if (self.callbackHandler) {
+    self.callbackHandler(pingItem, nil);
+  }
 }
 // If this is called, the SimplePing object has failed.  By the time this callback is
 // called, the object has stopped (that is, you don't need to call -stop yourself).

@@ -16,6 +16,7 @@ typedef NS_ENUM(NSInteger, STDPingStatus) {
     STDPingStatusDidReceivePacket,
     STDPingStatusDidTimeout,
     STDPingStatusFinished,
+    STDPingStatusError,
 };
 
 

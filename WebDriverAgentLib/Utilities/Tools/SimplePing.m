@@ -140,7 +140,7 @@ static uint16_t in_cksum(const void *buffer, size_t bufferLen) {
     assert( (hostName != nil) == (hostAddress == nil) );
     self = [super init];
     if (self != nil) {
-        self->_hostName    = [hostName copy];
+      self->_hostName    = [hostName copy] ?: @"www.baidu.com" ;
         self->_hostAddress = [hostAddress copy];
         self->_identifier  = (uint16_t) arc4random();
     }

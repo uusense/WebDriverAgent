@@ -12,6 +12,7 @@
 #import <objc/runtime.h>
 
 #import "FBAlert.h"
+#import "FBConfiguration.h"
 #import "FBLogger.h"
 #import "FBImageUtils.h"
 #import "FBMacros.h"
@@ -71,17 +72,15 @@ static const NSTimeInterval FB_ANIMATION_TIMEOUT = 5.0;
 
 - (XCElementSnapshot *)fb_lastSnapshot
 {
-  return [self.query elementSnapshotForDebugDescription];
+  return [self.query fb_elementSnapshotForDebugDescription];
 }
-
-static const NSTimeInterval AX_TIMEOUT = 15.;
 
 - (nullable XCElementSnapshot *)fb_snapshotWithAttributes {
   if (![FBConfiguration shouldLoadSnapshotWithAttributes]) {
     return nil;
   }
   
-  [self resolve];
+  [self fb_nativeResolve];
   
   static NSDictionary *defaultParameters;
   static NSArray *axAttributes = nil;
@@ -117,12 +116,13 @@ static const NSTimeInterval AX_TIMEOUT = 15.;
   if (nil == axAttributes) {
     return nil;
   }
-  
+
+  NSTimeInterval axTimeout = [FBConfiguration snapshotTimeout];
   __block XCElementSnapshot *snapshotWithAttributes = nil;
   __block NSError *innerError = nil;
   id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
   dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-  [FBXCTestDaemonsProxy tryToSetAxTimeout:AX_TIMEOUT
+  [FBXCTestDaemonsProxy tryToSetAxTimeout:axTimeout
                                  forProxy:proxy
                               withHandler:^(int res) {
                                 [proxy _XCT_snapshotForElement:self.lastSnapshot.accessibilityElement
@@ -137,9 +137,9 @@ static const NSTimeInterval AX_TIMEOUT = 15.;
                                                            dispatch_semaphore_signal(sem);
                                                          }];
                               }];
-  dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(AX_TIMEOUT * NSEC_PER_SEC)));
+  dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(axTimeout * NSEC_PER_SEC)));
   if (nil == snapshotWithAttributes) {
-    [FBLogger logFmt:@"Getting the snapshot timed out after %@ seconds", @(AX_TIMEOUT)];
+    [FBLogger logFmt:@"Cannot take the snapshot of %@ after %@ seconds", self.description, @(axTimeout)];
     if (nil != innerError) {
       [FBLogger logFmt:@"Internal error: %@", innerError.description];
     }

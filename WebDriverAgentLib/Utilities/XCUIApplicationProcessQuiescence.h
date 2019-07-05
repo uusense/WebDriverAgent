@@ -9,11 +9,17 @@
 
 #import <Foundation/Foundation.h>
 
-#import <WebDriverAgentLib/FBCommandHandler.h>
-
 NS_ASSUME_NONNULL_BEGIN
 
-@interface FBInspectorCommands : NSObject <FBCommandHandler>
+/**
+ This class allows disabling/enabling the usage of application launch quiescence validation.
+ */
+@interface XCUIApplicationProcessQuiescence : NSObject
+
+/**
+ Set the usage of application quiescence validation (defaults to NO).
+ */
++ (void)setQuiescenceCheck:(BOOL)value;
 
 @end
 

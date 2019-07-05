@@ -29,6 +29,9 @@ static NSString* const MJPEG_SERVER_FRAMERATE = @"mjpegServerFramerate";
 static NSString* const MJPEG_SCALING_FACTOR = @"mjpegScalingFactor";
 static NSString* const MJPEG_COMPRESSION_FACTOR = @"mjpegCompressionFactor";
 static NSString* const SCREENSHOT_QUALITY = @"screenshotQuality";
+static NSString* const KEYBOARD_AUTOCORRECTION = @"keyboardAutocorrection";
+static NSString* const KEYBOARD_PREDICTION = @"keyboardPrediction";
+static NSString* const SNAPSHOT_TIMEOUT = @"snapshotTimeout";
 
 @implementation FBSessionCommands
 
@@ -189,6 +192,13 @@ static NSString* const SCREENSHOT_QUALITY = @"screenshotQuality";
   NSString* code = [NSString stringWithCString:systemInfo.machine
                                       encoding:NSUTF8StringEncoding];
 
+  // Returns locale like ja_EN and zh-Hant_US. The format depends on OS
+  // Developers should use this locale by default
+  // https://developer.apple.com/documentation/foundation/nslocale/1414388-autoupdatingcurrentlocale
+  NSString *currentLocale = [[NSLocale autoupdatingCurrentLocale] localeIdentifier];
+  // TZ database Time Zones format like "US/Pacific"
+  NSString *timeZone = [[NSTimeZone localTimeZone] name];
+
   return
   FBResponseWithStatus(
     FBCommandStatusNoError,
@@ -205,6 +215,8 @@ static NSString* const SCREENSHOT_QUALITY = @"screenshotQuality";
         @{
           @"simulatorVersion" : [[UIDevice currentDevice] systemVersion],
           @"ip" : [XCUIDevice sharedDevice].fb_wifiIPAddress ?: [NSNull null],
+          @"currentLocale": currentLocale,
+          @"timeZone": timeZone,
         },
       @"build" : buildInfo.copy
     }
@@ -229,6 +241,9 @@ static NSString* const SCREENSHOT_QUALITY = @"screenshotQuality";
       MJPEG_SERVER_FRAMERATE: @([FBConfiguration mjpegServerFramerate]),
       MJPEG_SCALING_FACTOR: @([FBConfiguration mjpegScalingFactor]),
       SCREENSHOT_QUALITY: @([FBConfiguration screenshotQuality]),
+      KEYBOARD_AUTOCORRECTION: @([FBConfiguration keyboardAutocorrection]),
+      KEYBOARD_PREDICTION: @([FBConfiguration keyboardPrediction]),
+      SNAPSHOT_TIMEOUT: @([FBConfiguration snapshotTimeout])
     }
   );
 }
@@ -256,6 +271,15 @@ static NSString* const SCREENSHOT_QUALITY = @"screenshotQuality";
   }
   if ([settings objectForKey:MJPEG_SCALING_FACTOR]) {
     [FBConfiguration setMjpegScalingFactor:[[settings objectForKey:MJPEG_SCALING_FACTOR] unsignedIntegerValue]];
+  }
+  if ([settings objectForKey:KEYBOARD_AUTOCORRECTION]) {
+    [FBConfiguration setKeyboardAutocorrection:[[settings objectForKey:KEYBOARD_AUTOCORRECTION] boolValue]];
+  }
+  if ([settings objectForKey:KEYBOARD_PREDICTION]) {
+    [FBConfiguration setKeyboardPrediction:[[settings objectForKey:KEYBOARD_PREDICTION] boolValue]];
+  }
+  if ([settings objectForKey:SNAPSHOT_TIMEOUT]) {
+    [FBConfiguration setSnapshotTimeout:[[settings objectForKey:SNAPSHOT_TIMEOUT] doubleValue]];
   }
 
   return [self handleGetSettings:request];

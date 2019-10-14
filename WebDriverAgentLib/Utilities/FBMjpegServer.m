@@ -161,7 +161,8 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
     }
     __block NSData *screenshotData = nil;
     NSError *error;
-    screenshotData = [self.mainScreen screenshotDataForQuality:2 rect:self.screenRect error:&error];
+//    screenshotData = [self.mainScreen screenshotDataForQuality:2 rect:screenshotRect error:&error];
+    screenshotData = [[self.mainScreen screenshot] PNGRepresentation];
     if (nil == screenshotData || error != nil) {
         return;
     }

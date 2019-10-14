@@ -20,6 +20,7 @@
 #import "FBXCTestDaemonsProxy.h"
 #import "XCUIScreen.h"
 #import "FBMathUtils.h"
+#import "DeviceInfoManager.h"
 
 static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
 static const NSUInteger MAX_FPS = 60;
@@ -36,6 +37,7 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
 @property (nonatomic) NSUInteger currentFramerate;
 @property (nonatomic) XCUIScreen *mainScreen;
 @property (nonatomic) CGRect screenRect;
+@property (nonatomic) CGRect screenActualRect;
 
 @end
 
@@ -51,6 +53,7 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
         self.mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
         XCUIApplication *app = FBApplication.fb_activeApplication;
         CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
+        self.screenActualRect = CGRectMake(0, 0, screenSize.width * [[DeviceInfoManager sharedManager] getScaleFactor], screenSize.height * [[DeviceInfoManager sharedManager] getScaleFactor]);
         self.screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
         if (![self.class canStreamScreenshots]) {
             if (![self.class canScheduleTimerBlock]) {
@@ -161,8 +164,8 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
     }
     __block NSData *screenshotData = nil;
     NSError *error;
-//    screenshotData = [self.mainScreen screenshotDataForQuality:2 rect:screenshotRect error:&error];
-    screenshotData = [[self.mainScreen screenshot] PNGRepresentation];
+    screenshotData = [self.mainScreen screenshotDataForQuality:2 rect:self.screenActualRect error:&error];
+
     if (nil == screenshotData || error != nil) {
         return;
     }

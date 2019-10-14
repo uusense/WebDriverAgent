@@ -17,6 +17,7 @@
 #import "FBApplication.h"
 #import "FBMathUtils.h"
 #import "XCUIScreen.h"
+#import "DeviceInfoManager.h"
 
 @implementation FBScreenshotCommands
 
@@ -81,9 +82,16 @@
 {
   NSError *error;
   CGRect rect = CGRectZero;
+  NSString *version = [UIDevice currentDevice].systemVersion;
+  double scaled = [[DeviceInfoManager sharedManager] getScaleFactor];
   BOOL fullScreen = [request.arguments[@"full"] integerValue] == 1 ? YES : NO;
   if (!fullScreen) {
-    rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
+    if (version.doubleValue >= 11.0) {
+        rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
+    } else {
+        rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue] * scaled, (CGFloat)[request.arguments[@"y"] doubleValue] * scaled, (CGFloat)[request.arguments[@"width"] doubleValue] * scaled, (CGFloat)[request.arguments[@"height"] doubleValue] * scaled);
+    }
+
   }
   NSUInteger q = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
   NSString *type = request.arguments[@"type"];
@@ -102,7 +110,11 @@
   if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
     XCUIApplication *app = FBApplication.fb_activeApplication;
     CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
-    screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
+    if (version.doubleValue >= 11.0) {
+      screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
+    } else {
+      screenRect = CGRectMake(0, 0, screenSize.width * scaled, screenSize.height * scaled);
+    }
   } else {
     screenRect = rect;
   }

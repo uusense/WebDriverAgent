@@ -15,7 +15,8 @@
 
 + (instancetype)sharedManager;
 
-
+/* 获取资源分辨率倍率*/
+- (double)getScaleFactor;
 /** 获取设备型号 */
 - (const NSString *)getDeviceName;
 /** 获取设备装机时的系统版本（最低支持版本） */

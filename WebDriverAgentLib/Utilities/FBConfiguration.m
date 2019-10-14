@@ -220,12 +220,11 @@ static NSTimeInterval FBSnapshotTimeout = 15.;
   } else {
     [controller setValue:@NO forPreferenceKey:FBKeyboardPredictionKey];
   }
-
   // To dismiss keyboard tutorial on iOS 11+ (iPad)
-  if (isSDKVersionGreaterThanOrEqualTo(@"11.0")) {
+  if (isSDKVersionGreaterThanOrEqualTo(@"11.0") && [controller respondsToSelector:@selector(setValue:forPreferenceKey:)]) {
     [controller setValue:@YES forPreferenceKey:@"DidShowGestureKeyboardIntroduction"];
   }
-  if (isSDKVersionGreaterThanOrEqualTo(@"13.0")) {
+  if (isSDKVersionGreaterThanOrEqualTo(@"13.0") && [controller respondsToSelector:@selector(setValue:forPreferenceKey:)]) {
     [controller setValue:@YES forPreferenceKey:@"DidShowContinuousPathIntroduction"];
   }
   [controller synchronizePreferences];

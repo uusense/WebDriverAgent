@@ -208,6 +208,7 @@ static NSString* const SNAPSHOT_TIMEOUT = @"snapshotTimeout";
         @{
           @"code" : code ?: @"",
           @"name" : [[UIDevice currentDevice] systemName],
+          @"userName" : [[UIDevice currentDevice] name],
           @"version" : [[UIDevice currentDevice] systemVersion],
           @"sdkVersion": FBSDKVersion() ?: @"unknown",
         },

@@ -187,61 +187,61 @@
 
 
 
-- (NSString *)getNettype
-{
+- (NSString *)getNettype {
 
-    UIApplication *app = [UIApplication sharedApplication];
-    id statusBar = [app valueForKeyPath:@"statusBar"];
-    NSString *network = @"";
-    
-    if ([[[DeviceDataLibrery sharedLibrery] getDiviceName] isEqualToString:@"iPhone X"]) {
-      //        iPhone X
-      id statusBarView = [statusBar valueForKeyPath:@"statusBar"];
-      UIView *foregroundView = [statusBarView valueForKeyPath:@"foregroundView"];
-      
-      NSArray *subviews = [[foregroundView subviews][2] subviews];
-      
-      for (id subview in subviews) {
-        if ([subview isKindOfClass:NSClassFromString(@"_UIStatusBarWifiSignalView")]) {
-          network = @"WIFI";
-        }else if ([subview isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
-          network = [subview valueForKeyPath:@"originalText"];
-        }
-      }
-    }else {
-      //        非 iPhone X
-      UIView *foregroundView = [statusBar valueForKeyPath:@"foregroundView"];
-      NSArray *subviews = [foregroundView subviews];
-      
-      for (id subview in subviews) {
-        if ([subview isKindOfClass:NSClassFromString(@"UIStatusBarDataNetworkItemView")]) {
-          int networkType = [[subview valueForKeyPath:@"dataNetworkType"] intValue];
-          switch (networkType) {
-            case 0:
-              network = @"无网络连接";
-              break;
-            case 1:
-              network = @"2G";
-              break;
-            case 2:
-              network = @"3G";
-              break;
-            case 3:
-              network = @"4G";
-              break;
-            case 5:
-              network = @"WIFI";
-              break;
-            default:
-              break;
-          }
-        }
-      }
-    }
-    if ([network isEqualToString:@""]) {
-      network = @"NO DISPLAY";
-    }
-    return network;
+//    UIApplication *app = [UIApplication sharedApplication];
+//    id statusBar = [app valueForKeyPath:@"statusBar"];
+//    NSString *network = @"";
+//
+//    if ([[[DeviceDataLibrery sharedLibrery] getDiviceName] isEqualToString:@"iPhone X"]) {
+//      //        iPhone X
+//      id statusBarView = [statusBar valueForKeyPath:@"statusBar"];
+//      UIView *foregroundView = [statusBarView valueForKeyPath:@"foregroundView"];
+//
+//      NSArray *subviews = [[foregroundView subviews][2] subviews];
+//
+//      for (id subview in subviews) {
+//        if ([subview isKindOfClass:NSClassFromString(@"_UIStatusBarWifiSignalView")]) {
+//          network = @"WIFI";
+//        }else if ([subview isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
+//          network = [subview valueForKeyPath:@"originalText"];
+//        }
+//      }
+//    }else {
+//      //        非 iPhone X
+//      UIView *foregroundView = [statusBar valueForKeyPath:@"foregroundView"];
+//      NSArray *subviews = [foregroundView subviews];
+//
+//      for (id subview in subviews) {
+//        if ([subview isKindOfClass:NSClassFromString(@"UIStatusBarDataNetworkItemView")]) {
+//          int networkType = [[subview valueForKeyPath:@"dataNetworkType"] intValue];
+//          switch (networkType) {
+//            case 0:
+//              network = @"无网络连接";
+//              break;
+//            case 1:
+//              network = @"2G";
+//              break;
+//            case 2:
+//              network = @"3G";
+//              break;
+//            case 3:
+//              network = @"4G";
+//              break;
+//            case 5:
+//              network = @"WIFI";
+//              break;
+//            default:
+//              break;
+//          }
+//        }
+//      }
+//    }
+//    if ([network isEqualToString:@""]) {
+//      network = @"NO DISPLAY";
+//    }
+//    return network;
+  return @" ";
 }
 
 

@@ -59,6 +59,7 @@
 #import "UUMonkeySingleton.h"
 
 #import "STDPingServices.h"
+#import "BatteryInfoManager.h"
 
 #import<sys/sysctl.h>
 #import<mach/mach.h>
@@ -201,7 +202,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 
 + (id<FBResponsePayload>)uuGetSysInfo:(FBRouteRequest *)request
 {
-  
+  [[BatteryInfoManager sharedManager] startBatteryMonitoring];
   vm_statistics_data_t vmStats;
   mach_msg_type_number_t infoCount = HOST_VM_INFO_COUNT;
   kern_return_t kernReturn = host_statistics(mach_host_self(),
@@ -232,6 +233,13 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   [dic setObject:freeMemStr forKey:@"freeMem"];
   [dic setObject:@"MB" forKey:@"memeryUnit"];
   
+  [dic setObject:@([BatteryInfoManager sharedManager].capacity) forKey:@"BatteryCapacity"];
+  [dic setObject:@([BatteryInfoManager sharedManager].voltage) forKey:@"BatteryVoltage"];
+  [dic setObject:@([BatteryInfoManager sharedManager].levelPercent) forKey:@"BatteryLevelPercent"];
+  [dic setObject:@([BatteryInfoManager sharedManager].levelMAH) forKey:@"BatteryLevelMAH"];
+  [dic setObject:[BatteryInfoManager sharedManager].status forKey:@"BatteryStatus"];
+  
+  [[BatteryInfoManager sharedManager] stopBatteryMonitoring];
   return FBResponseWithObject(dic);
 }
 

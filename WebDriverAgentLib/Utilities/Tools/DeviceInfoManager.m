@@ -8,10 +8,11 @@
 
 #define KIsiPhoneX ([UIScreen instancesRespondToSelector:@selector(currentMode)] ? CGSizeEqualToSize(CGSizeMake(1125, 2436), [[UIScreen mainScreen] currentMode].size) : NO)
 
-#import "DeviceInfoManager.h"
-#import "sys/utsname.h"
 #import <AdSupport/AdSupport.h>
 #import <UIKit/UIKit.h>
+
+#import <CoreTelephony/CTCarrier.h>
+#import <CoreTelephony/CTTelephonyNetworkInfo.h>
 
 // 下面是获取mac地址需要导入的头文件
 #include <sys/socket.h> // Per msqr
@@ -36,7 +37,9 @@
 #include <mach/mach.h> // 获取CPU信息所需要引入的头文件
 //#include <arpa/inet.h>
 //#include <ifaddrs.h>
-
+#import "DeviceInfoManager.h"
+#import "sys/utsname.h"
+#import "Reachability.h"
 #import "DeviceDataLibrery.h"
 
 @implementation DeviceInfoManager
@@ -189,59 +192,55 @@
 
 - (NSString *)getNettype {
 
-//    UIApplication *app = [UIApplication sharedApplication];
-//    id statusBar = [app valueForKeyPath:@"statusBar"];
-//    NSString *network = @"";
-//
-//    if ([[[DeviceDataLibrery sharedLibrery] getDiviceName] isEqualToString:@"iPhone X"]) {
-//      //        iPhone X
-//      id statusBarView = [statusBar valueForKeyPath:@"statusBar"];
-//      UIView *foregroundView = [statusBarView valueForKeyPath:@"foregroundView"];
-//
-//      NSArray *subviews = [[foregroundView subviews][2] subviews];
-//
-//      for (id subview in subviews) {
-//        if ([subview isKindOfClass:NSClassFromString(@"_UIStatusBarWifiSignalView")]) {
-//          network = @"WIFI";
-//        }else if ([subview isKindOfClass:NSClassFromString(@"_UIStatusBarStringView")]) {
-//          network = [subview valueForKeyPath:@"originalText"];
-//        }
-//      }
-//    }else {
-//      //        非 iPhone X
-//      UIView *foregroundView = [statusBar valueForKeyPath:@"foregroundView"];
-//      NSArray *subviews = [foregroundView subviews];
-//
-//      for (id subview in subviews) {
-//        if ([subview isKindOfClass:NSClassFromString(@"UIStatusBarDataNetworkItemView")]) {
-//          int networkType = [[subview valueForKeyPath:@"dataNetworkType"] intValue];
-//          switch (networkType) {
-//            case 0:
-//              network = @"无网络连接";
-//              break;
-//            case 1:
-//              network = @"2G";
-//              break;
-//            case 2:
-//              network = @"3G";
-//              break;
-//            case 3:
-//              network = @"4G";
-//              break;
-//            case 5:
-//              network = @"WIFI";
-//              break;
-//            default:
-//              break;
-//          }
-//        }
-//      }
-//    }
-//    if ([network isEqualToString:@""]) {
-//      network = @"NO DISPLAY";
-//    }
-//    return network;
-  return @" ";
+   NSString *netconnType = @"";
+    Reachability *reach = [Reachability reachabilityWithHostName:@"www.apple.com"];
+    
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wcovered-switch-default"
+    switch ([reach currentReachabilityStatus]) {
+      case NotReachable: {
+        netconnType = @"no network";
+      }
+        break;
+      case ReachableViaWiFi: {
+        netconnType = @"Wifi";
+      }
+        break;
+      case ReachableViaWWAN: {
+        CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
+        NSString *currentStatus = info.currentRadioAccessTechnology;
+        if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyGPRS"]) {
+          netconnType = @"GPRS";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyEdge"]) {
+          netconnType = @"2.75G EDGE";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyWCDMA"]){
+          netconnType = @"3G";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyHSDPA"]){
+          netconnType = @"3.5G HSDPA";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyHSUPA"]){
+          netconnType = @"3.5G HSUPA";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMA1x"]){
+          netconnType = @"2G";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORev0"]){
+          netconnType = @"3G";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORevA"]){
+          netconnType = @"3G";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORevB"]){
+          netconnType = @"3G";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyeHRPD"]){
+          netconnType = @"HRPD";
+        }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyLTE"]){
+          netconnType = @"4G";
+        }
+      }
+        break;
+      default:
+        break;
+    }
+    NSLog(@"netconnType is %@", netconnType);
+  #pragma clang diagnostic pop
+   
+  return netconnType;
 }
 
 

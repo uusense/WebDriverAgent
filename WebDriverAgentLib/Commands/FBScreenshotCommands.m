@@ -42,7 +42,8 @@
 + (id<FBResponsePayload>)handleGetScreenshot:(FBRouteRequest *)request
 {
   NSError *error;
-  NSData *screenshotData = [[XCUIDevice sharedDevice] fb_screenshotWithError:&error];
+  //NSData *screenshotData = [[XCUIDevice sharedDevice] fb_screenshotWithError:&error];
+  NSData *screenshotData = [[XCUIDevice sharedDevice] uu_screenshotWithError:&error];
   if (nil == screenshotData) {
     return FBResponseWithError(error);
   }

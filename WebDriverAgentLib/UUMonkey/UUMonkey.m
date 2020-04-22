@@ -110,8 +110,9 @@
 }
 
 - (CGPoint)randomPointAvoidingPanelAreas {
-    CGFloat topHeight               = 20;
-    CGFloat bottomHeight            = 20;
+    CGFloat topHeight               = 44;
+    CGFloat bottomHeight            = 30;
+    
     CGRect frameWithoutTopAndBottom = CGRectMake(0, topHeight, self.frame.size.width, self.frame.size.height - topHeight - bottomHeight);
     return [self randomPointInRect:frameWithoutTopAndBottom];
 }

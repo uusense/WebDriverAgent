@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1811C0C024738D8F00E2DE5B /* CocoaAsyncSocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */; };
+		1811C0C124738D9000E2DE5B /* CocoaAsyncSocket.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		1831C94922817731005D44AA /* STDPingServices.m in Sources */ = {isa = PBXBuildFile; fileRef = 1831C9452281772F005D44AA /* STDPingServices.m */; };
 		1831C94A22817731005D44AA /* SimplePing.m in Sources */ = {isa = PBXBuildFile; fileRef = 1831C94622817730005D44AA /* SimplePing.m */; };
 		1831C94B22817731005D44AA /* STDPingServices.h in Headers */ = {isa = PBXBuildFile; fileRef = 1831C94722817730005D44AA /* STDPingServices.h */; };
@@ -327,11 +329,8 @@
 		641EE70F2240CE4800173FCB /* FBTVNavigationTracker.m in Sources */ = {isa = PBXBuildFile; fileRef = 641EE70D2240CE4800173FCB /* FBTVNavigationTracker.m */; };
 		641EE7152240DE7800173FCB /* CocoaAsyncSocket.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 641EE7142240DE7800173FCB /* CocoaAsyncSocket.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		641EE7162240DE8700173FCB /* CocoaAsyncSocket.framework in Copy frameworks */ = {isa = PBXBuildFile; fileRef = 641EE7142240DE7800173FCB /* CocoaAsyncSocket.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		641EE7182240DFB400173FCB /* CocoaAsyncSocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 641EE7142240DE7800173FCB /* CocoaAsyncSocket.framework */; };
-		710181F8211DF584002FD3A8 /* CocoaAsyncSocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */; };
-		71018201211DF62C002FD3A8 /* libxml2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 71018200211DF62C002FD3A8 /* libxml2.tbd */; };
-		7101820D211E026B002FD3A8 /* libAccessibility.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7101820C211E026B002FD3A8 /* libAccessibility.tbd */; };
 		641EE7172240DE8C00173FCB /* RoutingHTTPServer.framework in Copy frameworks */ = {isa = PBXBuildFile; fileRef = 641EE7122240DE5E00173FCB /* RoutingHTTPServer.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		641EE7182240DFB400173FCB /* CocoaAsyncSocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 641EE7142240DE7800173FCB /* CocoaAsyncSocket.framework */; };
 		641EE7192240DFC100173FCB /* RoutingHTTPServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 641EE7122240DE5E00173FCB /* RoutingHTTPServer.framework */; };
 		648C10AB22AAAD9C00B81B9A /* UIKeyboardImpl.h in Headers */ = {isa = PBXBuildFile; fileRef = 648C10AA22AAAD9C00B81B9A /* UIKeyboardImpl.h */; };
 		648C10AC22AAAD9C00B81B9A /* UIKeyboardImpl.h in Headers */ = {isa = PBXBuildFile; fileRef = 648C10AA22AAAD9C00B81B9A /* UIKeyboardImpl.h */; };
@@ -342,8 +341,9 @@
 		64B26508228C5514002A5025 /* XCUIElementDouble.m in Sources */ = {isa = PBXBuildFile; fileRef = 64B26507228C5514002A5025 /* XCUIElementDouble.m */; };
 		64B2650A228CE4FF002A5025 /* FBTVNavigationTracker-Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 64B26509228CE4FF002A5025 /* FBTVNavigationTracker-Private.h */; };
 		64B2650B228CE4FF002A5025 /* FBTVNavigationTracker-Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 64B26509228CE4FF002A5025 /* FBTVNavigationTracker-Private.h */; };
+		71018201211DF62C002FD3A8 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		7101820D211E026B002FD3A8 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		7101820E211E1E19002FD3A8 /* CocoaAsyncSocket.framework in Copy frameworks */ = {isa = PBXBuildFile; fileRef = 710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		7101820F211E3EC9002FD3A8 /* CocoaAsyncSocket.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		710C16CD21497A08006EA1D0 /* XCAccessibilityElement+FBComparison.h in Headers */ = {isa = PBXBuildFile; fileRef = 710C16CB21497A08006EA1D0 /* XCAccessibilityElement+FBComparison.h */; };
 		710C16CE21497A08006EA1D0 /* XCAccessibilityElement+FBComparison.m in Sources */ = {isa = PBXBuildFile; fileRef = 710C16CC21497A08006EA1D0 /* XCAccessibilityElement+FBComparison.m */; };
 		711084441DA3AA7500F913D6 /* FBXPath.h in Headers */ = {isa = PBXBuildFile; fileRef = 711084421DA3AA7500F913D6 /* FBXPath.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -379,7 +379,6 @@
 		71555A3E1DEC460A007D4A8B /* NSExpression+FBFormat.m in Sources */ = {isa = PBXBuildFile; fileRef = 71555A3C1DEC460A007D4A8B /* NSExpression+FBFormat.m */; };
 		7155B40D224D5A5F0042A993 /* YYCache.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7155B40C224D5A5F0042A993 /* YYCache.framework */; };
 		7155B40E224D5A850042A993 /* libAccessibility.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 716C9343224D53DF004B8542 /* libAccessibility.tbd */; };
-		7155B412224D5AF90042A993 /* CocoaAsyncSocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7155B411224D5AF90042A993 /* CocoaAsyncSocket.framework */; };
 		7155B413224D5AFC0042A993 /* CocoaAsyncSocket.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7155B411224D5AF90042A993 /* CocoaAsyncSocket.framework */; };
 		7155B414224D5B170042A993 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 716C9342224D53A1004B8542 /* XCTest.framework */; };
 		7155B41B224D5B5A0042A993 /* libAccessibility.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 7155B41A224D5B480042A993 /* libAccessibility.tbd */; };
@@ -830,7 +829,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				7101820F211E3EC9002FD3A8 /* CocoaAsyncSocket.framework in Copy Frameworks */,
+				1811C0C124738D9000E2DE5B /* CocoaAsyncSocket.framework in Copy Frameworks */,
 				AD35D01A1CF1418E00870A75 /* RoutingHTTPServer.framework in Copy Frameworks */,
 				715D5777224DE17E00DA2D99 /* YYCache.framework in Copy Frameworks */,
 			);
@@ -884,9 +883,9 @@
 		641EE7072240CDEB00173FCB /* XCUIElement+FBTVFocuse.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "XCUIElement+FBTVFocuse.m"; sourceTree = "<group>"; };
 		641EE70A2240CE2D00173FCB /* FBTVNavigationTracker.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FBTVNavigationTracker.h; sourceTree = "<group>"; };
 		641EE70D2240CE4800173FCB /* FBTVNavigationTracker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FBTVNavigationTracker.m; sourceTree = "<group>"; };
+		641EE7122240DE5E00173FCB /* RoutingHTTPServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RoutingHTTPServer.framework; path = Carthage/Build/tvOS/RoutingHTTPServer.framework; sourceTree = "<group>"; };
 		641EE7142240DE7800173FCB /* CocoaAsyncSocket.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CocoaAsyncSocket.framework; path = Carthage/Build/tvOS/CocoaAsyncSocket.framework; sourceTree = "<group>"; };
 		641EE71A2240E0FD00173FCB /* YYCache.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = YYCache.framework; path = Carthage/Build/iOS/YYCache.framework; sourceTree = "<group>"; };
-		641EE7122240DE5E00173FCB /* RoutingHTTPServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RoutingHTTPServer.framework; path = Carthage/Build/tvOS/RoutingHTTPServer.framework; sourceTree = "<group>"; };
 		641EE73A2240F49D00173FCB /* YYCache.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = YYCache.framework; path = Carthage/Build/tvOS/YYCache.framework; sourceTree = "<group>"; };
 		648C10AA22AAAD9C00B81B9A /* UIKeyboardImpl.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = UIKeyboardImpl.h; sourceTree = "<group>"; };
 		648C10AE22AAAE4000B81B9A /* TIPreferencesController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TIPreferencesController.h; sourceTree = "<group>"; };
@@ -1277,10 +1276,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				641EE7182240DFB400173FCB /* CocoaAsyncSocket.framework in Frameworks */,
-				641EE6292240C5CA00173FCB /* libxml2.tbd in Frameworks */,
-				641EE62A2240C5CA00173FCB /* libAccessibility.tbd in Frameworks */,
-				641EE62E2240C5CA00173FCB /* XCTest.framework in Frameworks */,
-				641EE62F2240C5CA00173FCB /* XCTAutomationSupport.framework in Frameworks */,
 				7155B414224D5B170042A993 /* XCTest.framework in Frameworks */,
 				7155B41C224D5B5D0042A993 /* libxml2.tbd in Frameworks */,
 				7155B41B224D5B5A0042A993 /* libAccessibility.tbd in Frameworks */,
@@ -1304,9 +1299,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				18B3CA3B21BE655D00E78392 /* CoreTelephony.framework in Frameworks */,
-				71018201211DF62C002FD3A8 /* libxml2.tbd in Frameworks */,
-				7101820D211E026B002FD3A8 /* libAccessibility.tbd in Frameworks */,
-				7155B412224D5AF90042A993 /* CocoaAsyncSocket.framework in Frameworks */,
+				71018201211DF62C002FD3A8 /* (null) in Frameworks */,
+				1811C0C024738D8F00E2DE5B /* CocoaAsyncSocket.framework in Frameworks */,
+				7101820D211E026B002FD3A8 /* (null) in Frameworks */,
 				7155B40E224D5A850042A993 /* libAccessibility.tbd in Frameworks */,
 				AD35D0641CF1C2C300870A75 /* RoutingHTTPServer.framework in Frameworks */,
 				7155B424224D5BA10042A993 /* XCTest.framework in Frameworks */,
@@ -1476,8 +1471,6 @@
 				716C9344224D53FC004B8542 /* XCTAutomationSupport.framework */,
 				716C9343224D53DF004B8542 /* libAccessibility.tbd */,
 				716C9345224D540C004B8542 /* libxml2.tbd */,
-				AD42DD2B1CF1238500806E5D /* RoutingHTTPServer.framework */,
-				710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */,
 			);
 			name = iOS;
 			sourceTree = "<group>";
@@ -1552,12 +1545,7 @@
 			children = (
 				18B3CA3A21BE655C00E78392 /* CoreTelephony.framework */,
 				710181F7211DF584002FD3A8 /* CocoaAsyncSocket.framework */,
-				E456BF72206BC17F00963F9F /* YYCache.framework */,
 				AD42DD2B1CF1238500806E5D /* RoutingHTTPServer.framework */,
-				7101820C211E026B002FD3A8 /* libAccessibility.tbd */,
-				71018200211DF62C002FD3A8 /* libxml2.tbd */,
-				EE8980D321105B49001789EE /* XCTest.framework */,
-				EE8980D321105B49001789ED /* XCTAutomationSupport.framework */,
 				716C9341224D5369004B8542 /* iOS */,
 				716C9340224D5358004B8542 /* tvOS */,
 			);
@@ -3202,9 +3190,8 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
-				DEBUG_INFORMATION_FORMAT = dwarf;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "iPhone Developer";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				INFOPLIST_FILE = WebDriverAgentRunner/Info.plist;

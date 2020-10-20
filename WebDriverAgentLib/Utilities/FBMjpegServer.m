@@ -164,7 +164,10 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
     }
     __block NSData *screenshotData = nil;
     NSError *error;
-    screenshotData = [self.mainScreen screenshotDataForQuality:2 rect:self.screenActualRect error:&error];
+    XCUIApplication *app = FBApplication.fb_activeApplication;
+    CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
+    CGRect tmpScreenActualRect = CGRectMake(0, 0, screenSize.width * [[DeviceInfoManager sharedManager] getScaleFactor], screenSize.height * [[DeviceInfoManager sharedManager] getScaleFactor]);
+    screenshotData = [self.mainScreen screenshotDataForQuality:2 rect:tmpScreenActualRect error:&error];
 
     if (nil == screenshotData || error != nil) {
         return;

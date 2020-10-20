@@ -302,6 +302,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uuHandleTap:(FBRouteRequest *)request {
+  
   CGPoint tapPoint = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
   
   __block BOOL didSucceed;
@@ -352,6 +353,8 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uuHandleForceTouch:(FBRouteRequest *)request {
+  
+  XCUIApplication *app = FBApplication.fb_activeApplication;
   CGPoint touchPoint    = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
   double pressure = 1;
   double duration = 1;

@@ -9,10 +9,13 @@
 
 #import <Foundation/Foundation.h>
 
+#import "AXSettings.h"
 #import "UIKeyboardImpl.h"
 #import "TIPreferencesController.h"
 
 NS_ASSUME_NONNULL_BEGIN
+
+extern NSString *const FBSnapshotMaxDepthKey;
 
 /**
  Accessors for Global Constants.
@@ -37,6 +40,9 @@ NS_ASSUME_NONNULL_BEGIN
 /*! Disables attribute key path analysis, which will cause XCTest on Xcode 9.x to ignore some elements */
 + (void)disableAttributeKeyPathAnalysis;
 
+/*! Disables XCTest from automated screenshots taking */
++ (void)disableScreenshots;
+
 /* The maximum typing frequency for all typing activities */
 + (void)setMaxTypingFrequency:(NSUInteger)value;
 + (NSUInteger)maxTypingFrequency;
@@ -44,10 +50,6 @@ NS_ASSUME_NONNULL_BEGIN
 /* Use singleton test manager proxy */
 + (void)setShouldUseSingletonTestManager:(BOOL)value;
 + (BOOL)shouldUseSingletonTestManager;
-
-/* Whether to wait for quiescence on application startup */
-+ (void)setShouldWaitForQuiescence:(BOOL)value;
-+ (BOOL)shouldWaitForQuiescence;
 
 /**
  * Extract switch value from arguments
@@ -106,12 +108,20 @@ NS_ASSUME_NONNULL_BEGIN
  */
 + (BOOL)verboseLoggingEnabled;
 
-+ (BOOL)shouldLoadSnapshotWithAttributes;
-
 /**
  * Configure keyboards preference to make test running stable
  */
 + (void)configureDefaultKeyboardPreferences;
+
+
+/**
+Defines keyboard preference enabled status
+*/
+typedef NS_ENUM(NSInteger, FBConfigurationKeyboardPreference) {
+    FBConfigurationKeyboardPreferenceDisabled = 0,
+    FBConfigurationKeyboardPreferenceEnabled = 1,
+    FBConfigurationKeyboardPreferenceNotSupported = 2,
+};
 
 /**
  * Modify keyboard configuration of 'auto-correction'.
@@ -119,7 +129,7 @@ NS_ASSUME_NONNULL_BEGIN
  * @param isEnabled Turn the configuration on if the value is YES
  */
 + (void)setKeyboardAutocorrection:(BOOL)isEnabled;
-+ (BOOL)keyboardAutocorrection;
++ (FBConfigurationKeyboardPreference)keyboardAutocorrection;
 
 /**
  * Modify keyboard configuration of 'predictive'
@@ -127,7 +137,149 @@ NS_ASSUME_NONNULL_BEGIN
  * @param isEnabled Turn the configuration on if the value is YES
  */
 + (void)setKeyboardPrediction:(BOOL)isEnabled;
-+ (BOOL)keyboardPrediction;
++ (FBConfigurationKeyboardPreference)keyboardPrediction;
+
+/**
+ * The maximum time to wait until accessibility snapshot is taken
+ *
+ * @param timeout The number of float seconds to wait (15 seconds by default)
+ */
++ (void)setCustomSnapshotTimeout:(NSTimeInterval)timeout;
++ (NSTimeInterval)customSnapshotTimeout;
+
+/**
+ Sets maximum depth for traversing elements tree from parents to children while requesting XCElementSnapshot.
+ Used to set maxDepth value in a dictionary provided by XCAXClient_iOS's method defaultParams.
+ The original XCAXClient_iOS maxDepth value is set to INT_MAX, which is too big for some queries
+ (for example: searching elements inside a WebView).
+ Reasonable values are from 15 to 100 (larger numbers make queries slower).
+
+ @param maxDepth The number of maximum depth for traversing elements tree
+ */
++ (void)setSnapshotMaxDepth:(int)maxDepth;
+
+/**
+  @return The number of maximum depth for traversing elements tree
+ */
++ (int)snapshotMaxDepth;
+
+/**
+ Returns parameters for traversing elements tree from parents to children while requesting XCElementSnapshot.
+
+ @return dictionary with parameters for element's snapshot request
+*/
++ (NSDictionary *)snapshotRequestParameters;
+
+/**
+ * Whether to use fast search result matching while searching for elements.
+ * By default this is disabled due to https://github.com/appium/appium/issues/10101
+ * but it still makes sense to enable it for views containing large counts of elements
+ *
+ * @param enabled Either YES or NO
+ */
++ (void)setUseFirstMatch:(BOOL)enabled;
++ (BOOL)useFirstMatch;
+
+/**
+ * Whether to bound the lookup results by index.
+ * By default this is disabled and bounding by accessibility is used.
+ * Read https://stackoverflow.com/questions/49307513/meaning-of-allelementsboundbyaccessibilityelement
+ * for more details on these two bounding methods.
+ *
+ * @param enabled Either YES or NO
+ */
++ (void)setBoundElementsByIndex:(BOOL)enabled;
++ (BOOL)boundElementsByIndex;
+
+/**
+ * Modify reduce motion configuration in accessibility.
+ * It works only for Simulator since Real device has security model which allows chnaging preferences
+ * only from settings app.
+ *
+ * @param isEnabled Turn the configuration on if the value is YES
+ */
++ (void)setReduceMotionEnabled:(BOOL)isEnabled;
++ (BOOL)reduceMotionEnabled;
+
+/**
+ * Set the idling timeout. If the timeout expires then WDA
+ * tries to interact with the application even if it is not idling.
+ * Setting it to zero disables idling checks.
+ * The default timeout is set to 10 seconds.
+ *
+ * @param timeout The actual timeout value in float seconds
+ */
++ (void)setWaitForIdleTimeout:(NSTimeInterval)timeout;
++ (NSTimeInterval)waitForIdleTimeout;
+
+/**
+ * Set the idling timeout for different actions, for example events synthesis, rotation change,
+ * etc. If the timeout expires then WDA tries to interact with the application even if it is not idling.
+ * Setting it to zero disables idling checks.
+ * The default timeout is set to 2 seconds.
+ *
+ * @param timeout The actual timeout value in float seconds
+ */
++ (void)setAnimationCoolOffTimeout:(NSTimeInterval)timeout;
++ (NSTimeInterval)animationCoolOffTimeout;
+
+/**
+ Enforces the page hierarchy to include non modal elements,
+ like Contacts. By default such elements are not present there.
+ See https://github.com/appium/appium/issues/13227
+
+ @param isEnabled Set to YES in order to enable non modal elements inclusion.
+ Setting this value to YES will have no effect if the current iOS SDK does not support such feature.
+ */
++ (void)setIncludeNonModalElements:(BOOL)isEnabled;
++ (BOOL)includeNonModalElements;
+
+/**
+ Sets custom class chain locators for accept/dismiss alert buttons location.
+ This might be useful if the default buttons detection algorithm fails to determine alert buttons properly
+ when defaultAlertAction is set.
+
+ @param classChainSelector Valid class chain locator, which determines accept/reject button
+ on the alert. The search root is the alert element itself.
+ Setting this value to nil or an empty string (the default
+ value) will enforce WDA to apply the default algorithm for alert buttons location.
+ If an invalid/non-parseable locator is set then the lookup will fallback to the default algorithm and print a
+ warning into the log.
+ Example: ** /XCUIElementTypeButton[`label CONTAINS[c] 'accept'`]
+ */
++ (void)setAcceptAlertButtonSelector:(NSString *)classChainSelector;
++ (NSString *)acceptAlertButtonSelector;
++ (void)setDismissAlertButtonSelector:(NSString *)classChainSelector;
++ (NSString *)dismissAlertButtonSelector;
+
+#if !TARGET_OS_TV
+/**
+ Set the screenshot orientation for iOS
+
+ It helps to fix the screenshot orientation when the device under test's orientation changes.
+ For example, when a device changes to the landscape, the screenshot orientation could be wrong.
+ Then, this setting can force change the screenshot orientation.
+ Xcode versions, OS versions or device models and simulator or real device could influence it.
+
+ @param orientation Set the orientation to adjust the screenshot.
+ Case insensitive "portrait", "portraitUpsideDown", "landscapeRight" and "landscapeLeft"  are available
+ to force the coodinate adjust. Other words are handled as "auto", which handles
+ the adjustment automatically. Defaults to "auto".
+ @param error If no availale orientation strategy was given, it returns an NSError object that describes the problem.
+ */
++ (BOOL)setScreenshotOrientation:(NSString *)orientation error:(NSError **)error;
+
+/**
+@return The value of UIInterfaceOrientation
+*/
++ (NSInteger)screenshotOrientation;
+
+/**
+@return The orientation as String for human read
+*/
++ (NSString *)humanReadableScreenshotOrientation;
+
+#endif
 
 /**
  * The maximum time to wait until accessibility snapshot is taken

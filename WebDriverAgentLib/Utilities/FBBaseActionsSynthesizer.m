@@ -16,6 +16,7 @@
 #import "XCUIApplication+FBHelpers.h"
 #import "XCUIElement+FBIsVisible.h"
 #import "XCElementSnapshot.h"
+#import "XCUIElement+FBCaching.h"
 #import "XCElementSnapshot+FBHitPoint.h"
 #import "XCElementSnapshot+FBHelpers.h"
 #import "XCPointerEventPath.h"
@@ -23,7 +24,7 @@
 #import "XCUIElement+FBUtilities.h"
 
 #if !TARGET_OS_TV
-@implementation FBBaseGestureItem
+@implementation FBBaseActionItem
 
 + (NSString *)actionName
 {
@@ -31,28 +32,39 @@
   return nil;
 }
 
-- (NSArray<XCPointerEventPath *> *)addToEventPath:(XCPointerEventPath *)eventPath allItems:(NSArray<FBBaseGestureItem *> *)allItems currentItemIndex:(NSUInteger)currentItemIndex error:(NSError **)error
+- (NSArray<XCPointerEventPath *> *)addToEventPath:(XCPointerEventPath *)eventPath allItems:(NSArray *)allItems currentItemIndex:(NSUInteger)currentItemIndex error:(NSError **)error
 {
   @throw [[FBErrorBuilder.builder withDescription:@"Override this method in subclasses"] build];
   return nil;
 }
 
+@end
+
+@implementation FBBaseGestureItem
+
 - (CGPoint)fixedHitPointWith:(CGPoint)hitPoint forSnapshot:(XCElementSnapshot *)snapshot
 {
   UIInterfaceOrientation interfaceOrientation = self.application.interfaceOrientation;
   if (interfaceOrientation == UIInterfaceOrientationPortrait) {
+    // There is no need to recalculate anything for portrait orientation
     return hitPoint;
+  }
+  CGRect appFrame = self.application.frame;
+  if (@available(iOS 13.0, *)) {
+    // For Xcode11 it is always necessary to adjust the tap point coordinates
+    return FBInvertPointForApplication(hitPoint, appFrame.size, interfaceOrientation);
   }
   NSArray<XCElementSnapshot *> *ancestors = snapshot.fb_ancestors;
   XCElementSnapshot *parentWindow = ancestors.count > 1 ? [ancestors objectAtIndex:ancestors.count - 2] : nil;
   CGRect parentWindowFrame = nil == parentWindow ? snapshot.frame : parentWindow.frame;
-  CGRect appFrame = self.application.frame;
   if ((appFrame.size.height > appFrame.size.width && parentWindowFrame.size.height < parentWindowFrame.size.width) ||
       (appFrame.size.height < appFrame.size.width && parentWindowFrame.size.height > parentWindowFrame.size.width)) {
-    // This is the indication of the fact that transformation is broken and coordinates should be
-    // recalculated manually.
-    // However, upside-down case cannot be covered this way, which is not important for Appium
-    hitPoint = FBInvertPointForApplication(hitPoint, appFrame.size, interfaceOrientation);
+    /*
+     This is the indication of the fact that transformation is broken and coordinates should be
+     recalculated manually.
+     However, upside-down case cannot be covered this way, which is not important for Appium
+     */
+    return FBInvertPointForApplication(hitPoint, appFrame.size, interfaceOrientation);
   }
   return hitPoint;
 }
@@ -73,8 +85,20 @@
     }
   } else {
     // The offset relative to the element is defined
-    XCElementSnapshot *snapshot = element.fb_lastSnapshot;
-    CGRect frame = snapshot.frame;
+
+    XCElementSnapshot *snapshot = element.fb_isResolvedFromCache.boolValue
+      ? element.lastSnapshot
+      : element.fb_takeSnapshot;
+    if (nil == positionOffset) {
+      NSValue *hitPointValue = snapshot.fb_hitPoint;
+      if (nil != hitPointValue) {
+        // short circuit element hitpoint
+        return hitPointValue;
+      }
+      [FBLogger logFmt:@"Will use the frame of '%@' for hit point calculation instead", element.debugDescription];
+    }
+    CGRect visibleFrame = snapshot.visibleFrame;
+    CGRect frame = CGRectIsEmpty(visibleFrame) ? element.frame : visibleFrame;
     if (CGRectIsEmpty(frame)) {
       [FBLogger log:self.application.fb_descriptionRepresentation];
       NSString *description = [NSString stringWithFormat:@"The element '%@' is not visible on the screen and thus is not interactable", element.description];
@@ -83,16 +107,6 @@
       }
       return nil;
     }
-    if (nil == positionOffset) {
-      NSValue *hitPointValue = snapshot.fb_hitPoint;
-      if (nil != hitPointValue) {
-        // short circuit element hitpoint
-        return hitPointValue;
-      }
-      [FBLogger logFmt:@"Failed to fetch hit point for %@. Will use element frame for hit point calculation instead", element.debugDescription];
-    }
-    CGRect visibleFrame = snapshot.visibleFrame;
-    frame = CGRectIsEmpty(visibleFrame) ? frame : visibleFrame;
     if (nil == positionOffset) {
       hitPoint = CGPointMake(frame.origin.x + frame.size.width / 2,
                              frame.origin.y + frame.size.height / 2);
@@ -111,7 +125,7 @@
 @end
 
 
-@implementation FBBaseGestureItemsChain
+@implementation FBBaseActionItemsChain
 
 - (instancetype)init
 {
@@ -123,7 +137,7 @@
   return self;
 }
 
-- (void)addItem:(FBBaseGestureItem *)item __attribute__((noreturn))
+- (void)addItem:(FBBaseActionItem *)item __attribute__((noreturn))
 {
   @throw [[FBErrorBuilder.builder withDescription:@"Override this method in subclasses"] build];
 }
@@ -141,7 +155,7 @@
   XCPointerEventPath *previousEventPath = nil;
   XCPointerEventPath *currentEventPath = nil;
   NSUInteger index = 0;
-  for (FBBaseGestureItem *item in self.items.copy) {
+  for (FBBaseActionItem *item in self.items.copy) {
     NSArray<XCPointerEventPath *> *currentEventPaths = [item addToEventPath:currentEventPath
                                                                    allItems:self.items.copy
                                                            currentItemIndex:index++
@@ -149,8 +163,11 @@
     if (currentEventPaths == nil) {
       return nil;
     }
+
     currentEventPath = currentEventPaths.lastObject;
-    if (currentEventPath != previousEventPath) {
+    if (nil == currentEventPath) {
+      currentEventPath = previousEventPath;
+    } else if (currentEventPath != previousEventPath) {
       [result addObjectsFromArray:currentEventPaths];
       previousEventPath = currentEventPath;
     }

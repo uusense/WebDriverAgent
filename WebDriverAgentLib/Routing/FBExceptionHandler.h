@@ -12,21 +12,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/*! Exception used to notify about missing session */
-extern NSString *const FBSessionDoesNotExistException;
-
-/*! Exception used to notify about application deadlock */
-extern NSString *const FBApplicationDeadlockDetectedException;
-
-/*! Exception used to notify about unknown attribute */
-extern NSString *const FBElementAttributeUnknownException;
-
-/*! Exception used to notify about invalid argument */
-extern NSString *const FBInvalidArgumentException;
-
-/*! Exception used to notify about invisibility of an element while trying to interact with it */
-extern NSString *const FBElementNotVisibleException;
-
 /**
  Class used to handle exceptions raised by command handlers
  */
@@ -37,9 +22,8 @@ extern NSString *const FBElementNotVisibleException;
 
  @param exception exception that needs handling
  @param response response related to that exception
- @return YES, if exception was handled, otherwise NO
  */
-- (BOOL)handleException:(NSException *)exception forResponse:(RouteResponse *)response;
+- (void)handleException:(NSException *)exception forResponse:(RouteResponse *)response;
 
 @end
 

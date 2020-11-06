@@ -17,6 +17,7 @@
 @property (nonatomic, strong, nonnull) XCUIApplication *application;
 @property (nonatomic, readwrite, assign) CGRect frame;
 @property (nonatomic, assign) BOOL fb_isObstructedByAlert;
+@property (nonatomic, nullable) NSNumber *fb_isResolvedFromCache;
 @property (nonatomic, readwrite, copy, nonnull) NSDictionary *wdRect;
 @property (nonatomic, readwrite, assign) CGRect wdFrame;
 @property (nonatomic, readwrite, copy, nonnull) NSString *wdUID;
@@ -25,6 +26,7 @@
 @property (nonatomic, copy, readwrite, nonnull) NSString *wdType;
 @property (nonatomic, strong, readwrite, nullable) NSString *wdValue;
 @property (nonatomic, readwrite, getter=isWDEnabled) BOOL wdEnabled;
+@property (nonatomic, readwrite, getter=isWDSelected) BOOL wdSelected;
 @property (nonatomic, readwrite, getter=isWDVisible) BOOL wdVisible;
 @property (nonatomic, readwrite, getter=isWDAccessible) BOOL wdAccessible;
 @property (nonatomic, readwrite, getter=isWDFocused) BOOL wdFocused;
@@ -33,6 +35,7 @@
 @property (nonatomic, readwrite, getter=isWDAccessibilityContainer) BOOL wdAccessibilityContainer;
 
 - (void)resolve;
+- (id _Nonnull)fb_takeSnapshot;
 
 // Checks
 @property (nonatomic, assign, readonly) BOOL didResolve;

@@ -7,21 +7,16 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <Foundation/Foundation.h>
-
-#import <WebDriverAgentLib/FBResponsePayload.h>
+#import <XCTest/XCTest.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-/**
- Class that represents WebDriverAgent file respond
- */
-@interface FBResponseFilePayload : NSObject <FBResponsePayload>
+@interface XCUIElement (FBCaching)
 
-/**
- Initializer for respond that returns content of file at given 'path'
- */
-- (instancetype)initWithFilePath:(NSString *)path;
+/*! This property is set to YES if the given element has been resolved from the cache, so it is safe to use the `lastSnapshot` property */
+@property (nullable, nonatomic) NSNumber *fb_isResolvedFromCache;
+
+@property (nonatomic, readonly) NSString *fb_cacheId;
 
 @end
 

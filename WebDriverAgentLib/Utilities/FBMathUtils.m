@@ -23,6 +23,11 @@ BOOL FBFloatFuzzyEqualToFloat(CGFloat float1, CGFloat float2, CGFloat threshold)
   return (fabs(float1 - float2) <= threshold);
 }
 
+BOOL FBVectorFuzzyEqualToVector(CGVector a, CGVector b, CGFloat threshold)
+{
+  return FBFloatFuzzyEqualToFloat(a.dx, b.dx, threshold) && FBFloatFuzzyEqualToFloat(a.dy, b.dy, threshold);
+}
+
 BOOL FBPointFuzzyEqualToPoint(CGPoint point1, CGPoint point2, CGFloat threshold)
 {
   return FBFloatFuzzyEqualToFloat(point1.x, point2.x, threshold) && FBFloatFuzzyEqualToFloat(point1.y, point2.y, threshold);
@@ -50,9 +55,9 @@ CGPoint FBInvertPointForApplication(CGPoint point, CGSize screenSize, UIInterfac
     case UIInterfaceOrientationPortraitUpsideDown:
       return CGPointMake(screenSize.width - point.x, screenSize.height - point.y);
     case UIInterfaceOrientationLandscapeLeft:
-      return CGPointMake(point.y, screenSize.height - point.x);
+      return CGPointMake(point.y, MAX(screenSize.width, screenSize.height) - point.x);
     case UIInterfaceOrientationLandscapeRight:
-      return CGPointMake(screenSize.width - point.y, point.x);
+      return CGPointMake(MIN(screenSize.width, screenSize.height) - point.y, point.x);
   }
 }
 

@@ -12,11 +12,13 @@
 #import <objc/runtime.h>
 
 #import "FBRuntimeUtils.h"
+#import "FBXCodeCompatibility.h"
+#import "XCElementSnapshot.h"
 
 NSNumber *FB_XCAXAIsVisibleAttribute;
-const char *FB_XCAXAIsVisibleAttributeName = "XC_kAXXCAttributeIsVisible";
+NSString *FB_XCAXAIsVisibleAttributeName = @"XC_kAXXCAttributeIsVisible";
 NSNumber *FB_XCAXAIsElementAttribute;
-const char *FB_XCAXAIsElementAttributeName = "XC_kAXXCAttributeIsElement";
+NSString *FB_XCAXAIsElementAttributeName = @"XC_kAXXCAttributeIsElement";
 
 void (*XCSetDebugLogger)(id <XCDebugLogDelegate>);
 id<XCDebugLogDelegate> (*XCDebugLogger)(void);
@@ -25,8 +27,8 @@ NSArray<NSNumber *> *(*XCAXAccessibilityAttributesForStringAttributes)(id);
 
 __attribute__((constructor)) void FBLoadXCTestSymbols(void)
 {
-  NSString *XC_kAXXCAttributeIsVisible = *(NSString*__autoreleasing*)FBRetrieveXCTestSymbol(FB_XCAXAIsVisibleAttributeName);
-  NSString *XC_kAXXCAttributeIsElement = *(NSString*__autoreleasing*)FBRetrieveXCTestSymbol(FB_XCAXAIsElementAttributeName);
+  NSString *XC_kAXXCAttributeIsVisible = *(NSString*__autoreleasing*)FBRetrieveXCTestSymbol([FB_XCAXAIsVisibleAttributeName UTF8String]);
+  NSString *XC_kAXXCAttributeIsElement = *(NSString*__autoreleasing*)FBRetrieveXCTestSymbol([FB_XCAXAIsElementAttributeName UTF8String]);
 
   XCAXAccessibilityAttributesForStringAttributes =
   (NSArray<NSNumber *> *(*)(id))FBRetrieveXCTestSymbol("XCAXAccessibilityAttributesForStringAttributes");
@@ -50,4 +52,23 @@ void *FBRetrieveXCTestSymbol(const char *name)
   const char *binaryPath = XCTestBinary.UTF8String;
   NSCAssert(binaryPath != nil, @"XCTest binary path should not be nil", binaryPath);
   return FBRetrieveSymbolFromBinary(binaryPath, name);
+}
+
+NSArray<NSString*> *FBStandardAttributeNames(void)
+{
+  return [XCElementSnapshot sanitizedElementSnapshotHierarchyAttributesForAttributes:nil
+                                                                             isMacOS:NO];
+}
+
+NSArray<NSString*> *FBCustomAttributeNames(void)
+{
+  static NSArray<NSString *> *customNames;
+  static dispatch_once_t onceCustomAttributeNamesToken;
+  dispatch_once(&onceCustomAttributeNamesToken, ^{
+    customNames = @[
+      FB_XCAXAIsVisibleAttributeName,
+      FB_XCAXAIsElementAttributeName
+    ];
+  });
+  return customNames;
 }

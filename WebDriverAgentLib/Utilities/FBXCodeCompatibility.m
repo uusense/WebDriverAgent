@@ -9,9 +9,15 @@
 
 #import "FBXCodeCompatibility.h"
 
+#import "FBConfiguration.h"
 #import "FBErrorBuilder.h"
 #import "FBLogger.h"
+#import "XCUIApplication+FBHelpers.h"
 #import "XCUIElementQuery.h"
+#import "FBXCTestDaemonsProxy.h"
+#import "XCTestManager_ManagerInterface-Protocol.h"
+
+static const NSTimeInterval APP_STATE_CHANGE_TIMEOUT = 5.0;
 
 static BOOL FBShouldUseOldElementRootSelector = NO;
 static dispatch_once_t onceRootElementToken;
@@ -63,6 +69,10 @@ static dispatch_once_t onceAppWithPIDToken;
   dispatch_once(&onceAppWithPIDToken, ^{
     FBShouldUseOldAppWithPIDSelector = [XCUIApplication respondsToSelector:@selector(appWithPID:)];
   });
+  if (0 == processID) {
+    return nil;
+  }
+
   if (FBShouldUseOldAppWithPIDSelector) {
     return [self appWithPID:processID];
   }
@@ -72,6 +82,17 @@ static dispatch_once_t onceAppWithPIDToken;
 - (void)fb_activate
 {
   [self activate];
+  if (![self waitForState:XCUIApplicationStateRunningForeground timeout:APP_STATE_CHANGE_TIMEOUT / 2] || ![self fb_waitForAppElement:APP_STATE_CHANGE_TIMEOUT / 2]) {
+    [FBLogger logFmt:@"The application '%@' is not running in foreground after %.2f seconds", self.bundleID, APP_STATE_CHANGE_TIMEOUT];
+  }
+}
+
+- (void)fb_terminate
+{
+  [self terminate];
+  if (![self waitForState:XCUIApplicationStateNotRunning timeout:APP_STATE_CHANGE_TIMEOUT]) {
+    [FBLogger logFmt:@"The active application is still '%@' after %.2f seconds timeout", self.bundleID, APP_STATE_CHANGE_TIMEOUT];
+  }
 }
 
 - (NSUInteger)fb_state
@@ -82,40 +103,36 @@ static dispatch_once_t onceAppWithPIDToken;
 @end
 
 
-static BOOL FBShouldUseFirstMatchSelector = NO;
-static dispatch_once_t onceFirstMatchToken;
-
 @implementation XCUIElementQuery (FBCompatibility)
+
+- (BOOL)fb_isUniqueSnapshotSupported
+{
+  static dispatch_once_t onceToken;
+  static BOOL isUniqueMatchingSnapshotAvailable;
+  dispatch_once(&onceToken, ^{
+    isUniqueMatchingSnapshotAvailable = [self respondsToSelector:@selector(uniqueMatchingSnapshotWithError:)];
+  });
+  return isUniqueMatchingSnapshotAvailable;
+}
+
+- (XCElementSnapshot *)fb_uniqueSnapshotWithError:(NSError **)error
+{
+  return [self uniqueMatchingSnapshotWithError:error];
+}
 
 - (XCUIElement *)fb_firstMatch
 {
-  dispatch_once(&onceFirstMatchToken, ^{
-    // Unfortunately, firstMatch property does not work properly if
-    // the lookup is not executed in application context:
-    // https://github.com/appium/appium/issues/10101
-    //    FBShouldUseFirstMatchSelector = [self respondsToSelector:@selector(firstMatch)];
-    FBShouldUseFirstMatchSelector = NO;
-  });
-  if (FBShouldUseFirstMatchSelector) {
-    XCUIElement* result = self.firstMatch;
-    return result.exists ? result : nil;
-  }
-  if (!self.element.exists) {
-    return nil;
-  }
-  return self.allElementsBoundByAccessibilityElement.firstObject;
+  XCUIElement* match = FBConfiguration.useFirstMatch
+    ? self.firstMatch
+    : self.fb_allMatches.firstObject;
+  return [match exists] ? match : nil;
 }
 
-- (XCElementSnapshot *)fb_elementSnapshotForDebugDescription
+- (NSArray<XCUIElement *> *)fb_allMatches
 {
-  if ([self respondsToSelector:@selector(elementSnapshotForDebugDescription)]) {
-    return [self elementSnapshotForDebugDescription];
-  }
-  if ([self respondsToSelector:@selector(elementSnapshotForDebugDescriptionWithNoMatchesMessage:)]) {
-    return [self elementSnapshotForDebugDescriptionWithNoMatchesMessage:nil];
-  }
-  @throw [[FBErrorBuilder.builder withDescription:@"Cannot retrieve element snapshots for debug description. Please contact Appium developers"] build];
-  return nil;
+  return FBConfiguration.boundElementsByIndex
+    ? self.allElementsBoundByIndex
+    : self.allElementsBoundByAccessibilityElement;
 }
 
 @end
@@ -123,21 +140,56 @@ static dispatch_once_t onceFirstMatchToken;
 
 @implementation XCUIElement (FBCompatibility)
 
-- (void)fb_nativeResolve
+- (BOOL)fb_resolveWithError:(NSError **)error
 {
-  if ([self respondsToSelector:@selector(resolve)]) {
-    [self resolve];
-    return;
-  }
-  if ([self respondsToSelector:@selector(resolveOrRaiseTestFailure)]) {
-    @try {
+  @try {
+    // The order here matters
+    if ([self respondsToSelector:@selector(resolveOrRaiseTestFailure)]) {
       [self resolveOrRaiseTestFailure];
-    } @catch (NSException *e) {
-      [FBLogger logFmt:@"Failure while resolving '%@': %@", self.description, e.reason];
+      return YES;
+    } else if ([self respondsToSelector:@selector(resolve:)]) {
+      return [self resolve:error];
+    } else if ([self respondsToSelector:@selector(resolve)]) {
+      [self resolve];
+      return nil != self.lastSnapshot;
     }
-    return;
+  } @catch (NSException *e) {
+    if (nil != e.reason) {
+      return [[FBErrorBuilder.builder withDescription:(NSString *)e.reason] buildError:error];
+    }
   }
-  @throw [[FBErrorBuilder.builder withDescription:@"Cannot resolve elements. Please contact Appium developers"] build];
+  return [[FBErrorBuilder.builder withDescription:@"Cannot find a matching method to resolve elements. Please contact Appium developers"] buildError:error];
+}
+
++ (BOOL)fb_supportsNonModalElementsInclusion
+{
+  static dispatch_once_t hasIncludingNonModalElements;
+  static BOOL result;
+  dispatch_once(&hasIncludingNonModalElements, ^{
+    result = [FBApplication.fb_systemApplication.query respondsToSelector:@selector(includingNonModalElements)];
+  });
+  return result;
+}
+
+- (XCUIElementQuery *)fb_query
+{
+  return FBConfiguration.includeNonModalElements && self.class.fb_supportsNonModalElementsInclusion
+    ? self.query.includingNonModalElements
+    : self.query;
+}
+
+@end
+
+@implementation XCPointerEvent (FBXcodeCompatibility)
+
++ (BOOL)fb_areKeyEventsSupported
+{
+  static BOOL isKbInputSupported = NO;
+  static dispatch_once_t onceKbInputSupported;
+  dispatch_once(&onceKbInputSupported, ^{
+    isKbInputSupported = [XCPointerEvent.class respondsToSelector:@selector(keyboardEventForKeyCode:keyPhase:modifierFlags:offset:)];
+  });
+  return isKbInputSupported;
 }
 
 @end

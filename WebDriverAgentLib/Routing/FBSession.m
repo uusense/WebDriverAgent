@@ -16,13 +16,20 @@
 #import "FBApplication.h"
 #import "FBConfiguration.h"
 #import "FBElementCache.h"
+#import "FBExceptions.h"
 #import "FBMacros.h"
 #import "FBSpringboardApplication.h"
 #import "FBXCodeCompatibility.h"
 #import "XCAccessibilityElement.h"
+#import "XCUIApplication+FBQuiescence.h"
 #import "XCUIElement.h"
 
-NSString *const FBApplicationCrashedException = @"FBApplicationCrashedException";
+/*!
+ The intial value for the default application property.
+ Setting this value to `defaultActiveApplication` property forces WDA to use the internal
+ automated algorithm to determine the active on-screen application
+ */
+NSString *const FBDefaultApplicationAuto = @"auto";
 
 @interface FBSession ()
 @property (nonatomic) NSString *testedApplicationBundleId;
@@ -64,10 +71,10 @@ NSString *const FBApplicationCrashedException = @"FBApplicationCrashedException"
 
 @implementation FBSession
 
-static FBSession *_activeSession;
+static FBSession *_activeSession = nil;
 + (instancetype)activeSession
 {
-  return _activeSession ?: [FBSession sessionWithApplication:nil];
+  return _activeSession;
 }
 
 + (void)markSessionActive:(FBSession *)session
@@ -89,12 +96,13 @@ static FBSession *_activeSession;
   return _activeSession;
 }
 
-+ (instancetype)sessionWithApplication:(FBApplication *)application
++ (instancetype)initWithApplication:(FBApplication *)application
 {
   FBSession *session = [FBSession new];
   session.alertsMonitor = nil;
   session.defaultAlertAction = nil;
   session.identifier = [[NSUUID UUID] UUIDString];
+  session.defaultActiveApplication = FBDefaultApplicationAuto;
   session.testedApplicationBundleId = nil;
   NSMutableDictionary *apps = [NSMutableDictionary dictionary];
   if (application) {
@@ -107,12 +115,12 @@ static FBSession *_activeSession;
   return session;
 }
 
-+ (instancetype)sessionWithApplication:(nullable FBApplication *)application defaultAlertAction:(NSString *)defaultAlertAction
++ (instancetype)initWithApplication:(nullable FBApplication *)application defaultAlertAction:(NSString *)defaultAlertAction
 {
-  FBSession *session = [self.class sessionWithApplication:application];
+  FBSession *session = [self.class initWithApplication:application];
   session.alertsMonitor = [[FBAlertsMonitor alloc] init];
   session.alertsMonitor.delegate = (id<FBAlertsMonitorDelegate>)session;
-  session.alertsMonitor.application = FBApplication.fb_activeApplication;
+  session.alertsMonitor.application = application;
   session.defaultAlertAction = [defaultAlertAction lowercaseString];
   [session.alertsMonitor enable];
   return session;
@@ -133,7 +141,10 @@ static FBSession *_activeSession;
 
 - (FBApplication *)activeApplication
 {
-  FBApplication *application = [FBApplication fb_activeApplication];
+  NSString *defaultBundleId = [self.defaultActiveApplication isEqualToString:FBDefaultApplicationAuto]
+    ? nil
+    : self.defaultActiveApplication;
+  FBApplication *application = [FBApplication fb_activeApplicationWithDefaultBundleId:defaultBundleId];
   FBApplication *testedApplication = nil;
   if (self.testedApplicationBundleId) {
     testedApplication = [self.applications objectForKey:self.testedApplicationBundleId];
@@ -172,29 +183,36 @@ static FBSession *_activeSession;
   return NO;
 }
 
-- (void)launchApplicationWithBundleId:(NSString *)bundleIdentifier
-              shouldWaitForQuiescence:(nullable NSNumber *)shouldWaitForQuiescence
-                            arguments:(nullable NSArray<NSString *> *)arguments
-                          environment:(nullable NSDictionary <NSString *, NSString *> *)environment
+- (FBApplication *)launchApplicationWithBundleId:(NSString *)bundleIdentifier
+                         shouldWaitForQuiescence:(nullable NSNumber *)shouldWaitForQuiescence
+                                       arguments:(nullable NSArray<NSString *> *)arguments
+                                     environment:(nullable NSDictionary <NSString *, NSString *> *)environment
 {
   FBApplication *app = [self registerApplicationWithBundleId:bundleIdentifier];
   if (app.fb_state < 2) {
-    if (nil != shouldWaitForQuiescence) {
+    if (nil == shouldWaitForQuiescence) {
+      // Iherit the quiescence check setting from the main app under test by default
+      FBApplication *testedApplication = nil == self.testedApplicationBundleId
+        ? nil
+        : [self.applications objectForKey:self.testedApplicationBundleId];
+      app.fb_shouldWaitForQuiescence = nil == testedApplication || testedApplication.fb_shouldWaitForQuiescence;
+    } else {
       app.fb_shouldWaitForQuiescence = [shouldWaitForQuiescence boolValue];
-    } else if ([bundleIdentifier isEqualToString:self.testedApplicationBundleId]) {
-      app.fb_shouldWaitForQuiescence = FBConfiguration.shouldWaitForQuiescence;
     }
     app.launchArguments = arguments ?: @[];
     app.launchEnvironment = environment ?: @{};
     [app launch];
+  } else {
+    [app fb_activate];
   }
-  [app fb_activate];
+  return app;
 }
 
-- (void)activateApplicationWithBundleId:(NSString *)bundleIdentifier
+- (FBApplication *)activateApplicationWithBundleId:(NSString *)bundleIdentifier
 {
   FBApplication *app = [self registerApplicationWithBundleId:bundleIdentifier];
   [app fb_activate];
+  return app;
 }
 
 - (BOOL)terminateApplicationWithBundleId:(NSString *)bundleIdentifier

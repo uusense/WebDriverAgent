@@ -45,7 +45,7 @@
   //NSData *screenshotData = [[XCUIDevice sharedDevice] fb_screenshotWithError:&error];
   NSData *screenshotData = [[XCUIDevice sharedDevice] uu_screenshotWithError:&error];
   if (nil == screenshotData) {
-    return FBResponseWithError(error);
+    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
   }
   NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
   return FBResponseWithObject(screenshot);
@@ -56,7 +56,7 @@
   NSError *error;
   NSData *screenshotData = [[XCUIDevice sharedDevice] uu_screenshotWithError:&error];
   if (nil == screenshotData) {
-    return FBResponseWithError(error);
+    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
   }
   if ( [[UIDevice currentDevice].systemVersion doubleValue] <= 11 ) {
     return UUResponseWithPNG(screenshotData);
@@ -73,7 +73,7 @@
   NSUInteger quality = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
   NSData *screenshotData = [[XCUIDevice sharedDevice] uu_screenshotWithSize:rect andQuality:quality andError:&error];
   if (nil == screenshotData) {
-    return FBResponseWithError(error);
+    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
   }
   NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
   return FBResponseWithObject(screenshot);
@@ -99,12 +99,9 @@
   NSData *screenshotData = nil;
   Class xcScreenClass = objc_lookUpClass("XCUIScreen");
   if (xcScreenClass == nil) {
-    return FBResponseWithErrorFormat(@"Screen shot failed, XCUIScreen is nil");
+    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:@"Screen shot failed, XCUIScreen is nil" traceback:nil]);
   }
-//  XCUIApplication *application = FBApplication.fb_activeApplication;
-//  if (application) {
-//
-//  }
+
   NSUInteger quality = 2;
   CGRect screenRect = CGRectZero;
   
@@ -129,7 +126,7 @@
     screenshotData = [mainScreen screenshotDataForQuality:quality rect:screenRect error:&error];
   }
   if (nil == screenshotData || error) {
-    return FBResponseWithErrorFormat(@"Screen shot failed, screenshotData is nil");
+    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:@"Screen shot failed, XCUIScreen is nil" traceback:nil]);
   }
   
   if ([type isEqualToString:@"PNG"]) {

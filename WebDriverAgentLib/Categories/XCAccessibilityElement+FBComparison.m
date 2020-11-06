@@ -12,9 +12,13 @@
 
 @implementation XCAccessibilityElement (FBComparison)
 
-- (BOOL)isEqualToElement:(XCAccessibilityElement *)other
+- (BOOL)fb_isEqualToElement:(XCAccessibilityElement *)other
 {
-  return nil == other ? NO : [[FBElementUtils uidWithAccessibilityElement:self] isEqualToString:[FBElementUtils uidWithAccessibilityElement:other]];
+  if (nil == other) {
+    return NO;
+  }
+  return [[FBElementUtils uidWithAccessibilityElement:self]
+          isEqualToString:([FBElementUtils uidWithAccessibilityElement:other] ?: @"")];
 }
 
 @end

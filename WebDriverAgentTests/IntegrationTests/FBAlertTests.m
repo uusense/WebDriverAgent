@@ -11,6 +11,7 @@
 
 #import <WebDriverAgentLib/FBAlert.h>
 
+#import "FBConfiguration.h"
 #import "FBIntegrationTestCase.h"
 #import "FBTestMacros.h"
 #import "FBMacros.h"
@@ -50,11 +51,6 @@
   FBAssertWaitTillBecomesTrue(self.testedApplication.sheets.count != 0);
 }
 
-- (void)testAlertException
-{
-  XCTAssertThrowsSpecificNamed([FBAlert throwRequestedItemObstructedByAlertException], NSException, FBAlertObstructingElementException);
-}
-
 - (void)testAlertPresence
 {
   FBAlert *alert = [FBAlert alertWithApplication:self.testedApplication];
@@ -88,7 +84,9 @@
   XCTAssertFalse([alert clickAlertButton:@"Invalid" error:nil]);
   [self showApplicationAlert];
   XCTAssertFalse([alert clickAlertButton:@"Invalid" error:nil]);
+  FBAssertWaitTillBecomesTrue(alert.isPresent);
   XCTAssertTrue([alert clickAlertButton:@"Will do" error:nil]);
+  FBAssertWaitTillBecomesTrue(!alert.isPresent);
 }
 
 - (void)testAcceptingAlert
@@ -100,6 +98,20 @@
   XCTAssertNil(error);
 }
 
+- (void)testAcceptingAlertWithCustomLocator
+{
+  NSError *error;
+  [self showApplicationAlert];
+  [FBConfiguration setAcceptAlertButtonSelector:@"**/XCUIElementTypeButton[-1]"];
+  @try {
+    XCTAssertTrue([[FBAlert alertWithApplication:self.testedApplication] acceptWithError:&error]);
+    FBAssertWaitTillBecomesTrue(self.testedApplication.alerts.count == 0);
+    XCTAssertNil(error);
+  } @finally {
+    [FBConfiguration setAcceptAlertButtonSelector:@""];
+  }
+}
+
 - (void)testDismissingAlert
 {
   NSError *error;
@@ -109,23 +121,26 @@
   XCTAssertNil(error);
 }
 
+- (void)testDismissingAlertWithCustomLocator
+{
+  NSError *error;
+  [self showApplicationAlert];
+  [FBConfiguration setDismissAlertButtonSelector:@"**/XCUIElementTypeButton[-1]"];
+  @try {
+    XCTAssertTrue([[FBAlert alertWithApplication:self.testedApplication] dismissWithError:&error]);
+    FBAssertWaitTillBecomesTrue(self.testedApplication.alerts.count == 0);
+    XCTAssertNil(error);
+  } @finally {
+    [FBConfiguration setDismissAlertButtonSelector:@""];
+  }
+}
+
 - (void)testAlertElement
 {
   [self showApplicationAlert];
   XCUIElement *alertElement = [FBAlert alertWithApplication:self.testedApplication].alertElement;
   XCTAssertTrue(alertElement.exists);
   XCTAssertTrue(alertElement.elementType == XCUIElementTypeAlert);
-}
-
-- (void)testFilteringObstructedElements
-{
-  FBAlert *alert = [FBAlert alertWithApplication:self.testedApplication];
-  XCUIElement *showAlertButton = self.testedApplication.buttons[FBShowAlertButtonName];
-  XCUIElement *acceptAlertButton = self.testedApplication.buttons[@"Will do"];
-  [self showApplicationAlert];
-
-  NSArray *filteredElements = [alert filterObstructedElements:@[showAlertButton, acceptAlertButton]];
-  XCTAssertEqualObjects(filteredElements, @[acceptAlertButton]);
 }
 
 - (void)testNotificationAlert
@@ -158,27 +173,8 @@
   [self.testedApplication.buttons[@"Create GPS access Alert"] tap];
   FBAssertWaitTillBecomesTrue(alert.isPresent);
 
-  XCTAssertTrue([alert.text containsString:@"to access your location"]);
+  XCTAssertTrue([alert.text containsString:@"location"]);
   XCTAssertTrue([alert.text containsString:@"Yo Yo"]);
-}
-
-- (void)testSheetAlert
-{
-  if (SYSTEM_VERSION_LESS_THAN(@"11.0")) {
-    // This test is unstable under Xcode8
-    return;
-  }
-  FBAlert *alert = [FBAlert alertWithApplication:self.testedApplication];
-  BOOL isIpad = [UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad;
-  [self showApplicationSheet];
-  XCUIElement *showSheetButton = self.testedApplication.buttons[FBShowSheetAlertButtonName];
-  //On iphone this filterObstructedElements will throw an exception.
-  if (isIpad) {
-    NSArray *filteredElements = [alert filterObstructedElements:@[showSheetButton]];
-    XCTAssertEqualObjects(filteredElements, @[showSheetButton]);
-  } else {
-    XCTAssertThrowsSpecificNamed([alert filterObstructedElements:@[showSheetButton]], NSException, FBAlertObstructingElementException, @"should throw FBAlertObstructingElementException");
-  }
 }
 
 @end

@@ -23,7 +23,6 @@
 #import "XCUIElement.h"
 #import "XCUIElementQuery.h"
 #import "FBXCAXClientProxy.h"
-#import "XCUIApplicationProcessQuiescence.h"
 
 
 static const NSTimeInterval APP_STATE_CHANGE_TIMEOUT = 5.0;
@@ -166,28 +165,6 @@ static const NSTimeInterval APP_STATE_CHANGE_TIMEOUT = 5.0;
   [super terminate];
   if (![self waitForState:XCUIApplicationStateNotRunning timeout:APP_STATE_CHANGE_TIMEOUT]) {
     [FBLogger logFmt:@"The active application is still '%@' after %.2f seconds timeout", self.bundleID, APP_STATE_CHANGE_TIMEOUT];
-  }
-}
-
-+ (void)fb_removeApplication:(FBApplication *)application
-{
-  @autoreleasepool {
-    if (nil == FBPidToApplicationMapping || nil == application) {
-      return;
-    }
-    
-    __block NSMutableArray<NSNumber *> *targetKeys = [NSMutableArray array];
-    
-    [FBPidToApplicationMapping enumerateKeysAndObjectsUsingBlock:^(NSNumber *  _Nonnull key, FBApplication *  _Nonnull obj, BOOL * _Nonnull stop) {
-      if ([obj.bundleID isEqualToString:application.bundleID]) {
-        [targetKeys addObject:[key copy]];
-      }
-    }];
-    
-    for (NSNumber *targetKey in targetKeys) {
-      [FBPidToApplicationMapping removeObjectForKey:targetKey];
-    }
-    targetKeys = nil;
   }
 }
 

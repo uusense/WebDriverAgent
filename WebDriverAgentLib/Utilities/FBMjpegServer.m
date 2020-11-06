@@ -9,7 +9,8 @@
 
 #import "FBMjpegServer.h"
 
-#import <objc/runtime.h>
+
+#import <mach/mach_time.h>
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <CocoaAsyncSocket/GCDAsyncSocket.h>
 #import "FBApplication.h"
@@ -18,6 +19,8 @@
 #import "XCTestManager_ManagerInterface-Protocol.h"
 #import "FBXCTestDaemonsProxy.h"
 #import "XCUIScreen.h"
+#import "FBImageIOScaler.h"
+#import <objc/runtime.h>
 #import "FBMathUtils.h"
 #import "DeviceInfoManager.h"
 

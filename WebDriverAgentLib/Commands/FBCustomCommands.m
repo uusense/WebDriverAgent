@@ -330,19 +330,18 @@
   }
   NSLog(@"netconnType is %@", netconnType);
 #pragma clang diagnostic pop
-  return FBResponseWithStatus(FBCommandStatusNoError, netconnType);
+  return FBResponseWithObject(netconnType);
 }
 
 + (id<FBResponsePayload>)handleGetNetBrand:(FBRouteRequest *)request
 {
   CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
   CTCarrier *carinfo = info.subscriberCellularProvider;
-  return FBResponseWithStatus(FBCommandStatusNoError, @{
-                                                        @"Name": carinfo.carrierName?:@"",
-                                                        @"MNC": carinfo.mobileNetworkCode?:@"",
-                                                        @"ISOCountryCode": carinfo.isoCountryCode?:@"",
-                                                        @"MCC": carinfo.mobileCountryCode?:@"",
-                                                        });
+  return FBResponseWithObject(@{
+            @"Name": carinfo.carrierName?:@"",
+            @"MNC": carinfo.mobileNetworkCode?:@"",
+            @"ISOCountryCode": carinfo.isoCountryCode?:@"",
+            @"MCC": carinfo.mobileCountryCode?:@"",});
 }
 
 + (id<FBResponsePayload>)handleUuGet:(FBRouteRequest *)request
@@ -373,9 +372,9 @@
   [dataTask resume];
   dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeOut * NSEC_PER_SEC)));
   if (errorInfo) {
-    return FBResponseWithError(errorInfo);
+    return FBResponseWithUnknownError(errorInfo);
   } else {
-    return FBResponseWithStatus(FBCommandStatusNoError, @{@"response": ret ?: @""});
+    return FBResponseWithObject(@{@"response": ret ?: @""});
   }
 }
 
@@ -416,9 +415,9 @@
   [dataTask resume];
   dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeOut * NSEC_PER_SEC)));
   if (errorInfo) {
-    return FBResponseWithError(errorInfo);
+    return FBResponseWithUnknownError(errorInfo);
   } else {
-    return FBResponseWithStatus(FBCommandStatusNoError, @{@"response": ret ?: @""});
+    return FBResponseWithObject(@{@"response": ret ?: @""});
   }
 }
 

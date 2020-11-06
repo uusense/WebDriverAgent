@@ -282,27 +282,6 @@ typedef NS_ENUM(NSInteger, FBConfigurationKeyboardPreference) {
 #endif
 
 /**
- * Configure keyboards preference to make test running stable
- */
-+ (void)configureDefaultKeyboardPreferences;
-
-/**
- * Modify keyboard configuration of 'auto-correction'.
- *
- * @param isEnabled Turn the configuration on if the value is YES
- */
-+ (void)setKeyboardAutocorrection:(BOOL)isEnabled;
-+ (BOOL)keyboardAutocorrection;
-
-/**
- * Modify keyboard configuration of 'predictive'
- *
- * @param isEnabled Turn the configuration on if the value is YES
- */
-+ (void)setKeyboardPrediction:(BOOL)isEnabled;
-+ (BOOL)keyboardPrediction;
-
-/**
  * The maximum time to wait until accessibility snapshot is taken
  *
  * @param timeout The number of float seconds to wait (15 seconds by default)

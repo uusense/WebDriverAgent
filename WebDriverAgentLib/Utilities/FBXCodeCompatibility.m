@@ -192,38 +192,4 @@ static dispatch_once_t onceAppWithPIDToken;
   return isKbInputSupported;
 }
 
-- (XCElementSnapshot *)fb_elementSnapshotForDebugDescription
-{
-  if ([self respondsToSelector:@selector(elementSnapshotForDebugDescription)]) {
-    return [self elementSnapshotForDebugDescription];
-  }
-  if ([self respondsToSelector:@selector(elementSnapshotForDebugDescriptionWithNoMatchesMessage:)]) {
-    return [self elementSnapshotForDebugDescriptionWithNoMatchesMessage:nil];
-  }
-  @throw [[FBErrorBuilder.builder withDescription:@"Cannot retrieve element snapshots for debug description. Please contact Appium developers"] build];
-  return nil;
-}
-
-@end
-
-
-@implementation XCUIElement (FBCompatibility)
-
-- (void)fb_nativeResolve
-{
-  if ([self respondsToSelector:@selector(resolve)]) {
-    [self resolve];
-    return;
-  }
-  if ([self respondsToSelector:@selector(resolveOrRaiseTestFailure)]) {
-    @try {
-      [self resolveOrRaiseTestFailure];
-    } @catch (NSException *e) {
-      [FBLogger logFmt:@"Failure while resolving '%@': %@", self.description, e.reason];
-    }
-    return;
-  }
-  @throw [[FBErrorBuilder.builder withDescription:@"Cannot resolve elements. Please contact Appium developers"] build];
-}
-
 @end

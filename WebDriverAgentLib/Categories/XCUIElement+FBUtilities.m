@@ -11,172 +11,139 @@
 
 #import <objc/runtime.h>
 
-#import "FBAlert.h"
 #import "FBConfiguration.h"
-#import "FBLogger.h"
+#import "FBExceptions.h"
 #import "FBImageUtils.h"
+#import "FBLogger.h"
 #import "FBMacros.h"
 #import "FBMathUtils.h"
-#import "FBPredicate.h"
 #import "FBRunLoopSpinner.h"
+#import "FBSettings.h"
 #import "FBXCAXClientProxy.h"
 #import "FBXCodeCompatibility.h"
 #import "FBXCTestDaemonsProxy.h"
+#import "XCUIApplication.h"
+#import "XCUIApplication+FBQuiescence.h"
+#import "XCUIApplicationImpl.h"
+#import "XCUIApplicationProcess.h"
 #import "XCTElementSetTransformer-Protocol.h"
 #import "XCTestManager_ManagerInterface-Protocol.h"
 #import "XCTestPrivateSymbols.h"
 #import "XCTRunnerDaemonSession.h"
+#import "XCUIElement+FBCaching.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
 #import "XCUIElementQuery.h"
+#import "XCUIElementQuery+FBHelpers.h"
 #import "XCUIScreen.h"
+#import "XCUIElement+FBUID.h"
+
+#define DEFAULT_AX_TIMEOUT 60.
 
 @implementation XCUIElement (FBUtilities)
 
-static const NSTimeInterval FB_ANIMATION_TIMEOUT = 5.0;
-
-- (BOOL)fb_waitUntilFrameIsStable
+- (XCElementSnapshot *)fb_takeSnapshot
 {
-  __block CGRect frame = self.frame;
-  // Initial wait
-  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
-  return
-  [[[FBRunLoopSpinner new]
-     timeout:10.]
-   spinUntilTrue:^BOOL{
-     const BOOL isSameFrame = FBRectFuzzyEqualToRect(self.frame, frame, FBDefaultFrameFuzzyThreshold);
-     frame = self.frame;
-     return isSameFrame;
-   }];
-}
-
-- (BOOL)fb_isObstructedByAlert
-{
-  return [[FBAlert alertWithApplication:self.application].alertElement fb_obstructsElement:self];
-}
-
-- (BOOL)fb_obstructsElement:(XCUIElement *)element
-{
-  if (!self.exists) {
-    return NO;
+  NSError *error = nil;
+  self.fb_isResolvedFromCache = @(NO);
+  if (self.query.fb_isUniqueSnapshotSupported) {
+    self.lastSnapshot = [self.fb_query fb_uniqueSnapshotWithError:&error];
+  } else {
+    self.lastSnapshot = nil;
+    // TODO: Remove this branch after Xcode10 support is dropped
+    [self fb_resolveWithError:&error];
   }
-  XCElementSnapshot *snapshot = self.fb_lastSnapshot;
-  XCElementSnapshot *elementSnapshot = element.fb_lastSnapshot;
-  if ([snapshot _isAncestorOfElement:elementSnapshot]) {
-    return NO;
-  }
-  if ([snapshot _matchesElement:elementSnapshot]) {
-    return NO;
-  }
-  return YES;
-}
-
-- (XCElementSnapshot *)fb_lastSnapshot
-{
-  return [self.query fb_elementSnapshotForDebugDescription];
-}
-
-- (nullable XCElementSnapshot *)fb_snapshotWithAttributes {
-  if (![FBConfiguration shouldLoadSnapshotWithAttributes]) {
-    return nil;
-  }
-  
-  [self fb_nativeResolve];
-  
-  static NSDictionary *defaultParameters;
-  static NSArray *axAttributes = nil;
-  
-  static dispatch_once_t initializeAttributesAndParametersToken;
-  dispatch_once(&initializeAttributesAndParametersToken, ^{
-    defaultParameters = [FBXCAXClientProxy.sharedClient defaultParameters];
-    // Names of the properties to load. There won't be lazy loading for missing properties,
-    // thus missing properties will lead to wrong results
-    NSArray<NSString *> *propertyNames = @[
-                      @"identifier",
-                      @"value",
-                      @"label",
-                      @"frame",
-                      @"enabled",
-                      @"elementType"
-                      ];
-
-    SEL attributesForElementSnapshotKeyPathsSelector = [XCElementSnapshot fb_attributesForElementSnapshotKeyPathsSelector];
-    NSSet *attributes = (nil == attributesForElementSnapshotKeyPathsSelector) ? nil
-      : [XCElementSnapshot performSelector:attributesForElementSnapshotKeyPathsSelector withObject:propertyNames];
-    if (nil != attributes) {
-      axAttributes = XCAXAccessibilityAttributesForStringAttributes(attributes);
-      if (![axAttributes containsObject:FB_XCAXAIsVisibleAttribute]) {
-        axAttributes = [axAttributes arrayByAddingObject:FB_XCAXAIsVisibleAttribute];
-      }
-      if (![axAttributes containsObject:FB_XCAXAIsElementAttribute]) {
-        axAttributes = [axAttributes arrayByAddingObject:FB_XCAXAIsElementAttribute];
-      }
+  if (nil == self.lastSnapshot) {
+    NSString *hintText = @"Make sure the application UI has the expected state";
+    if (nil != error
+        && [error.localizedDescription containsString:@"Identity Binding"]) {
+      hintText = [NSString stringWithFormat:@"%@. You could also try to switch the binding strategy using the 'boundElementsByIndex' setting for the element lookup", hintText];
     }
-  });
+    NSString *reason = [NSString stringWithFormat:@"The previously found element \"%@\" is not present in the current view anymore. %@", self.description, hintText];
+    if (nil != error) {
+      reason = [NSString stringWithFormat:@"%@. Original error: %@", reason, error.localizedDescription];
+    }
+    @throw [NSException exceptionWithName:FBStaleElementException reason:reason userInfo:@{}];
+  }
+  return self.lastSnapshot;
+}
 
-  if (nil == axAttributes) {
+- (XCElementSnapshot *)fb_cachedSnapshot
+{
+  return [self.query fb_cachedSnapshot];
+}
+
+- (nullable XCElementSnapshot *)fb_snapshotWithAllAttributesAndMaxDepth:(NSNumber *)maxDepth
+{
+  NSMutableArray *allNames = [NSMutableArray arrayWithArray:FBStandardAttributeNames()];
+  [allNames addObjectsFromArray:FBCustomAttributeNames()];
+  return [self fb_snapshotWithAttributes:allNames.copy
+                                maxDepth:maxDepth];
+}
+
+- (nullable XCElementSnapshot *)fb_snapshotWithAttributes:(NSArray<NSString *> *)attributeNames
+                                                 maxDepth:(NSNumber *)maxDepth
+{
+  NSSet<NSString *> *standardAttributes = [NSSet setWithArray:FBStandardAttributeNames()];
+  XCElementSnapshot *snapshot = self.fb_takeSnapshot;
+  NSTimeInterval axTimeout = FBConfiguration.customSnapshotTimeout;
+  if (nil == attributeNames
+      || [[NSSet setWithArray:attributeNames] isSubsetOfSet:standardAttributes]
+      || axTimeout < DBL_EPSILON) {
+    // return the "normal" element snapshot if no custom attributes are requested
+    return snapshot;
+  }
+
+  XCAccessibilityElement *axElement = snapshot.accessibilityElement;
+  if (nil == axElement) {
     return nil;
   }
 
-  NSTimeInterval axTimeout = [FBConfiguration snapshotTimeout];
-  __block XCElementSnapshot *snapshotWithAttributes = nil;
-  __block NSError *innerError = nil;
-  id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
-  dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-  [FBXCTestDaemonsProxy tryToSetAxTimeout:axTimeout
-                                 forProxy:proxy
-                              withHandler:^(int res) {
-                                [proxy _XCT_snapshotForElement:self.lastSnapshot.accessibilityElement
-                                                    attributes:axAttributes
-                                                    parameters:defaultParameters
-                                                         reply:^(XCElementSnapshot *snapshot, NSError *error) {
-                                                           if (nil == error) {
-                                                             snapshotWithAttributes = snapshot;
-                                                           } else {
-                                                             innerError = error;
-                                                           }
-                                                           dispatch_semaphore_signal(sem);
-                                                         }];
-                              }];
-  dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(axTimeout * NSEC_PER_SEC)));
+  NSError *setTimeoutError;
+  BOOL isTimeoutSet = [FBXCAXClientProxy.sharedClient setAXTimeout:axTimeout
+                                                             error:&setTimeoutError];
+  if (!isTimeoutSet) {
+    [FBLogger logFmt:@"Cannot set snapshoting timeout to %.1fs. Original error: %@",
+     axTimeout, setTimeoutError.localizedDescription];
+  }
+
+  NSError *error;
+  XCElementSnapshot *snapshotWithAttributes = [FBXCAXClientProxy.sharedClient snapshotForElement:axElement
+                                                                                      attributes:attributeNames
+                                                                                        maxDepth:maxDepth
+                                                                                           error:&error];
   if (nil == snapshotWithAttributes) {
-    [FBLogger logFmt:@"Cannot take the snapshot of %@ after %@ seconds", self.description, @(axTimeout)];
-    if (nil != innerError) {
-      [FBLogger logFmt:@"Internal error: %@", innerError.description];
-    }
+    [FBLogger logFmt:@"Cannot take a snapshot with attribute(s) %@ of '%@' after %.2f seconds",
+     attributeNames, snapshot.fb_description, axTimeout];
+    [FBLogger logFmt:@"This timeout could be customized via '%@' setting", CUSTOM_SNAPSHOT_TIMEOUT];
+    [FBLogger logFmt:@"Internal error: %@", error.localizedDescription];
+    [FBLogger logFmt:@"Falling back to the default snapshotting mechanism for the element '%@' (some attribute values, like visibility or accessibility might not be precise though)", snapshot.fb_description];
+    snapshotWithAttributes = self.lastSnapshot;
+  } else {
+    self.lastSnapshot = snapshotWithAttributes;
+  }
+
+  if (isTimeoutSet) {
+    [FBXCAXClientProxy.sharedClient setAXTimeout:DEFAULT_AX_TIMEOUT error:nil];
   }
   return snapshotWithAttributes;
 }
 
-- (XCElementSnapshot *)fb_lastSnapshotFromQuery
-{
-  XCElementSnapshot *snapshot = nil;
-  @try {
-    XCUIElementQuery *rootQuery = self.query;
-    while (rootQuery != nil && rootQuery.rootElementSnapshot == nil) {
-      rootQuery = rootQuery.inputQuery;
-    }
-    if (rootQuery != nil) {
-      NSMutableArray *snapshots = [NSMutableArray arrayWithObject:rootQuery.rootElementSnapshot];
-      [snapshots addObjectsFromArray:rootQuery.rootElementSnapshot._allDescendants];
-      NSOrderedSet *matchingSnapshots = (NSOrderedSet *)[self.query.transformer transform:[NSOrderedSet orderedSetWithArray:snapshots] relatedElements:nil];
-      if (matchingSnapshots != nil && matchingSnapshots.count == 1) {
-        snapshot = matchingSnapshots[0];
-      }
-    }
-  } @catch (NSException *) {
-    snapshot = nil;
-  }
-  return snapshot ?: self.fb_lastSnapshot;
-}
-
 - (NSArray<XCUIElement *> *)fb_filterDescendantsWithSnapshots:(NSArray<XCElementSnapshot *> *)snapshots
+                                                      selfUID:(NSString *)selfUID
+                                                 onlyChildren:(BOOL)onlyChildren
 {
   if (0 == snapshots.count) {
     return @[];
   }
-  NSArray<NSString *> *matchedUids = [snapshots valueForKey:FBStringify(XCUIElement, wdUID)];
+  NSArray<NSString *> *sortedIds = [snapshots valueForKey:FBStringify(XCUIElement, wdUID)];
   NSMutableArray<XCUIElement *> *matchedElements = [NSMutableArray array];
-  if ([matchedUids containsObject:self.wdUID]) {
+  NSString *uid = selfUID;
+  if (nil == uid) {
+    uid = self.fb_isResolvedFromCache.boolValue
+      ? self.lastSnapshot.fb_uid
+      : self.fb_uid;
+  }
+  if ([sortedIds containsObject:uid]) {
     if (1 == snapshots.count) {
       return @[self];
     }
@@ -187,60 +154,71 @@ static const NSTimeInterval FB_ANIMATION_TIMEOUT = 5.0;
   if (uniqueTypes && [uniqueTypes count] == 1) {
     type = [uniqueTypes.firstObject intValue];
   }
-  XCUIElementQuery *query = [[self descendantsMatchingType:type] matchingPredicate:[FBPredicate predicateWithFormat:@"%K IN %@", FBStringify(XCUIElement, wdUID), matchedUids]];
+  XCUIElementQuery *query = onlyChildren
+    ? [self.fb_query childrenMatchingType:type]
+    : [self.fb_query descendantsMatchingType:type];
+  query = [query matchingPredicate:[NSPredicate predicateWithFormat:@"%K IN %@", FBStringify(XCUIElement, wdUID), sortedIds]];
   if (1 == snapshots.count) {
     XCUIElement *result = query.fb_firstMatch;
     return result ? @[result] : @[];
   }
-  [matchedElements addObjectsFromArray:query.allElementsBoundByAccessibilityElement];
-  if (matchedElements.count <= 1) {
-    // There is no need to sort elements if count of matches is not greater than one
-    return matchedElements.copy;
-  }
-  NSMutableArray<XCUIElement *> *sortedElements = [NSMutableArray array];
-  [snapshots enumerateObjectsUsingBlock:^(XCElementSnapshot *snapshot, NSUInteger snapshotIdx, BOOL *stopSnapshotEnum) {
-    XCUIElement *matchedElement = nil;
-    for (XCUIElement *element in matchedElements) {
-      if ([element.wdUID isEqualToString:snapshot.wdUID]) {
-        matchedElement = element;
-        break;
-      }
-    }
-    if (matchedElement) {
-      [sortedElements addObject:matchedElement];
-      [matchedElements removeObject:matchedElement];
-    }
-  }];
-  return sortedElements.copy;
+  // Rely here on the fact, that XPath always returns query results in the same
+  // order they appear in the document, which means we don't need to resort the resulting
+  // array. Although, if it turns out this is still not the case then we could always
+  // uncomment the sorting procedure below:
+  //  query = [query sorted:(id)^NSComparisonResult(XCElementSnapshot *a, XCElementSnapshot *b) {
+  //    NSUInteger first = [sortedIds indexOfObject:a.wdUID];
+  //    NSUInteger second = [sortedIds indexOfObject:b.wdUID];
+  //    if (first < second) {
+  //      return NSOrderedAscending;
+  //    }
+  //    if (first > second) {
+  //      return NSOrderedDescending;
+  //    }
+  //    return NSOrderedSame;
+  //  }];
+  return query.fb_allMatches;
 }
 
-- (BOOL)fb_waitUntilSnapshotIsStable
+- (void)fb_waitUntilStable
 {
-  dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-  [FBXCAXClientProxy.sharedClient notifyWhenNoAnimationsAreActiveForApplication:self.application reply:^{dispatch_semaphore_signal(sem);}];
-  dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(FB_ANIMATION_TIMEOUT * NSEC_PER_SEC));
-  BOOL result = 0 == dispatch_semaphore_wait(sem, timeout);
-  if (!result) {
-    [FBLogger logFmt:@"The applicaion has still not finished animations after %.2f seconds timeout", FB_ANIMATION_TIMEOUT];
-  }
-  return result;
+  [self fb_waitUntilStableWithTimeout:FBConfiguration.waitForIdleTimeout];
 }
 
-#if !TARGET_OS_TV
+- (void)fb_waitUntilStableWithTimeout:(NSTimeInterval)timeout
+{
+  NSTimeInterval previousTimeout = FBConfiguration.waitForIdleTimeout;
+  BOOL previousQuiescence = self.application.fb_shouldWaitForQuiescence;
+
+  FBConfiguration.waitForIdleTimeout = timeout;
+  if (!previousQuiescence) {
+    self.application.fb_shouldWaitForQuiescence = YES;
+  }
+  [[[self.application applicationImpl] currentProcess] waitForQuiescenceIncludingAnimationsIdle:YES];
+
+  if (previousQuiescence != self.application.fb_shouldWaitForQuiescence) {
+    self.application.fb_shouldWaitForQuiescence = previousQuiescence;
+  }
+  FBConfiguration.waitForIdleTimeout = previousTimeout;
+}
+
 - (NSData *)fb_screenshotWithError:(NSError **)error
 {
-  if (CGRectIsEmpty(self.frame)) {
+  XCElementSnapshot *selfSnapshot = self.fb_isResolvedFromCache.boolValue
+    ? self.lastSnapshot
+    : self.fb_takeSnapshot;
+  if (CGRectIsEmpty(selfSnapshot.frame)) {
     if (error) {
       *error = [[FBErrorBuilder.builder withDescription:@"Cannot get a screenshot of zero-sized element"] build];
     }
     return nil;
   }
 
-  CGRect elementRect = self.frame;
+  CGRect elementRect = selfSnapshot.frame;
+#if !TARGET_OS_TV
   UIInterfaceOrientation orientation = self.application.interfaceOrientation;
   if (orientation == UIInterfaceOrientationLandscapeLeft || orientation == UIInterfaceOrientationLandscapeRight) {
     // Workaround XCTest bug when element frame is returned as in portrait mode even if the screenshot is rotated
-    XCElementSnapshot *selfSnapshot = self.fb_lastSnapshot;
     NSArray<XCElementSnapshot *> *ancestors = selfSnapshot.fb_ancestors;
     XCElementSnapshot *parentWindow = nil;
     if (1 == ancestors.count) {
@@ -254,21 +232,25 @@ static const NSTimeInterval FB_ANIMATION_TIMEOUT = 5.0;
       if (CGRectEqualToRect(appFrame, parentWindowFrame)
           || (appFrame.size.width > appFrame.size.height && parentWindowFrame.size.width > parentWindowFrame.size.height)
           || (appFrame.size.width < appFrame.size.height && parentWindowFrame.size.width < parentWindowFrame.size.height)) {
-        CGPoint fixedOrigin = orientation == UIInterfaceOrientationLandscapeLeft ?
+          CGPoint fixedOrigin = orientation == UIInterfaceOrientationLandscapeLeft ?
           CGPointMake(appFrame.size.height - elementRect.origin.y - elementRect.size.height, elementRect.origin.x) :
-          CGPointMake(elementRect.origin.y, appFrame.size.width - elementRect.origin.x - elementRect.size.width);
+        CGPointMake(elementRect.origin.y, appFrame.size.width - elementRect.origin.x - elementRect.size.width);
         elementRect = CGRectMake(fixedOrigin.x, fixedOrigin.y, elementRect.size.height, elementRect.size.width);
       }
     }
   }
+#endif
   NSData *imageData = [XCUIScreen.mainScreen screenshotDataForQuality:FBConfiguration.screenshotQuality
                                                                  rect:elementRect
                                                                 error:error];
+#if !TARGET_OS_TV
   if (nil == imageData) {
     return nil;
   }
   return FBAdjustScreenshotOrientationForApplication(imageData, orientation);
-}
+#else
+  return imageData;
 #endif
+}
 
 @end

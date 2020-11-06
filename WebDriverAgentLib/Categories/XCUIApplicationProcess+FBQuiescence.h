@@ -7,19 +7,16 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <Foundation/Foundation.h>
+#import <XCTest/XCTest.h>
+
+#import "XCUIApplicationProcess.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-/**
- This class allows disabling/enabling the usage of application launch quiescence validation.
- */
-@interface XCUIApplicationProcessQuiescence : NSObject
+@interface XCUIApplicationProcess (FBQuiescence)
 
-/**
- Set the usage of application quiescence validation (defaults to NO).
- */
-+ (void)setQuiescenceCheck:(BOOL)value;
+/*! Defines wtether the process should perform quiescence checks. YES by default */
+@property (nonatomic) NSNumber* fb_shouldWaitForQuiescence;
 
 @end
 

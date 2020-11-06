@@ -12,6 +12,7 @@
 
 #import "FBApplication.h"
 #import "FBMathUtils.h"
+#import "XCUIElement+FBCaching.h"
 #import "XCUIElement+FBUtilities.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
 #import "XCUIApplication+FBHelpers.h"
@@ -20,12 +21,12 @@
 
 @implementation FBTVNavigationItem
 
-+ (instancetype)itemWithUid:(NSUInteger) uid
++ (instancetype)itemWithUid:(NSString *) uid
 {
   return [[FBTVNavigationItem alloc] initWithUid:uid];
 }
 
-- (instancetype)initWithUid:(NSUInteger) uid
+- (instancetype)initWithUid:(NSString *) uid
 {
   self = [super init];
   if(self) {
@@ -40,7 +41,7 @@
 @interface FBTVNavigationTracker ()
 @property (nonatomic, strong) XCUIElement *targetElement;
 @property (nonatomic, assign) CGPoint targetCenter;
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, FBTVNavigationItem* >* navigationItems;
+@property (nonatomic, strong) NSMutableDictionary<NSString *, FBTVNavigationItem* >* navigationItems;
 @end
 
 @implementation FBTVNavigationTracker
@@ -55,9 +56,12 @@
 - (instancetype)initWithTargetElement:(XCUIElement *)targetElement
 {
   self = [super init];
-  if(self) {
+  if (self) {
     _targetElement = targetElement;
-    _targetCenter = FBRectGetCenter(targetElement.wdFrame);
+    CGRect frame = targetElement.fb_isResolvedFromCache.boolValue
+      ? targetElement.lastSnapshot.wdFrame
+      : targetElement.wdFrame;
+    _targetCenter = FBRectGetCenter(frame);
     _navigationItems = [NSMutableDictionary dictionary];
   }
   return self;
@@ -90,13 +94,18 @@
 #pragma mark - Utilities
 - (FBTVNavigationItem*)navigationItemWithElement:(id<FBElement>)element
 {
-  NSNumber *key = [NSNumber numberWithUnsignedInteger:element.wdUID];
-  FBTVNavigationItem* item = [self.navigationItems objectForKey: key];
-  if(item) {
+  NSString *uid = element.wdUID;
+  if (nil == uid) {
+    return nil;
+  }
+
+  FBTVNavigationItem* item = [self.navigationItems objectForKey:uid];
+  if (nil != item) {
     return item;
   }
-  item = [FBTVNavigationItem itemWithUid:element.wdUID];
-  [self.navigationItems setObject:item forKey:key];
+  
+  item = [FBTVNavigationItem itemWithUid:uid];
+  [self.navigationItems setObject:item forKey:uid];
   return item;
 }
 

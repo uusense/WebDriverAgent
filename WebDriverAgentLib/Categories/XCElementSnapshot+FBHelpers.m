@@ -22,6 +22,15 @@ inline static BOOL isSnapshotTypeAmongstGivenTypes(XCElementSnapshot* snapshot, 
 
 @implementation XCElementSnapshot (FBHelpers)
 
+- (NSString *)fb_description
+{
+  NSString *result = [NSString stringWithFormat:@"%@", self.wdType];
+  if (nil != self.wdName) {
+    result = [NSString stringWithFormat:@"%@ (%@)", result, self.wdName];
+  }
+  return result;
+}
+
 - (NSArray<XCElementSnapshot *> *)fb_descendantsMatchingType:(XCUIElementType)type
 {
   return [self descendantsByFilteringWithBlock:^BOOL(XCElementSnapshot *snapshot) {
@@ -67,7 +76,7 @@ inline static BOOL isNilOrEmpty(id value);
     // Pure payload-based comparison sometimes yield false negatives, therefore relying on it only if all of the identifying properties are blank
   if (isNilOrEmpty(self.identifier) && isNilOrEmpty(self.title) && isNilOrEmpty(self.label) &&
       isNilOrEmpty(self.value) && isNilOrEmpty(self.placeholderValue)) {
-    return [self.wdUID isEqualToString:snapshot.wdUID];
+    return [self.wdUID isEqualToString:(snapshot.wdUID ?: @"")];
   }
   
   return self.elementType == snapshot.elementType &&

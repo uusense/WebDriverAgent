@@ -20,6 +20,9 @@
 #import "FBMacros.h"
 #import "FBMathUtils.h"
 #import "FBXCodeCompatibility.h"
+#import "XCTestManager_ManagerInterface-Protocol.h"
+#import "FBXCTestDaemonsProxy.h"
+#import <MobileCoreServices/MobileCoreServices.h>
 
 #import "XCUIDevice.h"
 #import "XCAXClient_iOS.h"
@@ -27,6 +30,7 @@
 
 static const NSTimeInterval FBHomeButtonCoolOffTime = 1.;
 static const NSTimeInterval FBScreenLockTimeout = 5.;
+static const NSTimeInterval SCREENSHOT_TIMEOUT = 2;
 
 @implementation XCUIDevice (FBHelpers)
 
@@ -52,17 +56,7 @@ static bool fb_isLocked;
 
 - (BOOL)fb_goToHomescreenWithError:(NSError **)error
 {
-  [self pressButton:XCUIDeviceButtonHome];
-  // This is terrible workaround to the fact that pressButton:XCUIDeviceButtonHome is not a synchronous action.
-  // On 9.2 some first queries  will trigger additional "go to home" event
-  // So if we don't wait here it will be interpreted as double home button gesture and go to application switcher instead.
-  // On 9.3 pressButton:XCUIDeviceButtonHome can be slightly delayed.
-  // Causing waitUntilApplicationBoardIsVisible not to work properly in some edge cases e.g. like starting session right after this call, while being on home screen
-  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:FBHomeButtonCoolOffTime]];
-  if (![[FBSpringboardApplication fb_springboard] fb_waitUntilApplicationBoardIsVisible:error]) {
-    return NO;
-  }
-  return YES;
+  return [FBSpringboardApplication.fb_springboard fb_switchToWithError:error];
 }
 
 - (BOOL)fb_lockScreen:(NSError **)error
@@ -190,10 +184,7 @@ static bool fb_isLocked;
 
 - (NSData *)fb_screenshotWithError:(NSError*__autoreleasing*)error
 {
-  NSData* screenshotData = [self fb_rawScreenshotWithQuality:FBConfiguration.screenshotQuality rect:CGRectNull error:error];
-  if (nil == screenshotData) {
-    return nil;
-  }
+  NSData* screenshotData = [self fb_rawScreenshotWithQuality:FBConfiguration.screenshotQuality error:error];
 #if TARGET_OS_TV
   return FBAdjustScreenshotOrientationForApplication(screenshotData);
 #else
@@ -201,9 +192,22 @@ static bool fb_isLocked;
 #endif
 }
 
-- (NSData *)fb_rawScreenshotWithQuality:(NSUInteger)quality rect:(CGRect)rect error:(NSError*__autoreleasing*)error
+- (NSData *)fb_rawScreenshotWithQuality:(NSUInteger)quality error: (NSError*__autoreleasing*) error
 {
-  return [XCUIScreen.mainScreen screenshotDataForQuality:quality rect:rect error:error];
+  if ([XCUIDevice fb_isNewScreenshotAPISupported]) {
+    return [XCUIScreen.mainScreen screenshotDataForQuality:quality rect:CGRectNull error:error];
+  } else {
+    id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
+    __block NSData *screenshotData = nil;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    [proxy _XCT_requestScreenshotWithReply:^(NSData *data, NSError *screenshotError) {
+      screenshotData = data;
+      *error = screenshotError;
+      dispatch_semaphore_signal(sem);
+    }];
+    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
+    return screenshotData;
+  }
 }
 
 - (BOOL)fb_fingerTouchShouldMatch:(BOOL)shouldMatch
@@ -215,6 +219,16 @@ static bool fb_isLocked;
     name = "com.apple.BiometricKit_Sim.fingerTouch.nomatch";
   }
   return notify_post(name) == NOTIFY_STATUS_OK;
+}
+
++ (BOOL)fb_isNewScreenshotAPISupported
+{
+  static dispatch_once_t newScreenshotAPISupported;
+  static BOOL result;
+  dispatch_once(&newScreenshotAPISupported, ^{
+    result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
+  });
+  return result;
 }
 
 - (NSString *)fb_wifiIPAddress

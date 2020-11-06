@@ -8,6 +8,7 @@
  */
 
 #import <WebDriverAgentLib/WebDriverAgentLib.h>
+#import "XCPointerEvent.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -45,7 +46,7 @@ extern NSString *const FBApplicationMethodNotSupportedException;
  Nothing will happen if the application is already in foreground.
  This method is only supported since Xcode9.
 
- @throws FBApplicationMethodNotSupportedException if the method is called on Xcode SDK older than 9.
+ @throws FBTimeoutException if the app is still not active after the timeout
  */
 - (void)fb_activate;
 
@@ -57,11 +58,9 @@ extern NSString *const FBApplicationMethodNotSupportedException;
 @property(nullable, readonly) XCUIElement *fb_firstMatch;
 
 /**
- Retrieves the snapshot for the given element
-
- @returns The resolved snapshot
+ Terminate the application and wait until it disappears from the list of active apps
  */
-- (XCElementSnapshot *)fb_elementSnapshotForDebugDescription;
+- (void)fb_terminate;
 
 @end
 
@@ -71,6 +70,62 @@ extern NSString *const FBApplicationMethodNotSupportedException;
  Enforces snapshot resolution of the destination element
  */
 - (void)fb_nativeResolve;
+
+/*
+ This is the local wrapper for bounded elements extraction.
+ It uses either indexed or bounded binding based on the `boundElementsByIndex` configuration
+ flag value.
+ */
+@property(readonly) NSArray<XCUIElement *> *fb_allMatches;
+
+/**
+ Returns single unique matching snapshot for the given query
+
+ @param error The error instance if there was a failure while retrieveing the snapshot
+ @returns The cached unqiue snapshot or nil if the element is stale
+ */
+- (nullable XCElementSnapshot *)fb_uniqueSnapshotWithError:(NSError **)error;
+
+/**
+ @returns YES if the element supports unique snapshots retrieval
+ */
+- (BOOL)fb_isUniqueSnapshotSupported;
+
+@end
+
+
+@interface XCPointerEvent (FBCompatibility)
+
+- (BOOL)fb_areKeyEventsSupported;
+
+@end
+
+
+@interface XCUIElement (FBCompatibility)
+
+/**
+ Enforces snapshot resolution of the destination element.
+ !!! Do not cal this method on Xcode 11 or later due to performance considerations.
+ Prefer using fb_takeSnapshot instead.
+
+ @param error Contains the actual error if element resolution fails
+ @returns YES if the element has been successfully resolved
+ */
+- (BOOL)fb_resolveWithError:(NSError **)error;
+
+/**
+ Determines whether current iOS SDK supports non modal elements inlusion into snapshots
+
+ @return Either YES or NO
+ */
++ (BOOL)fb_supportsNonModalElementsInclusion;
+
+/**
+ Retrieves element query
+
+ @return Element query property extended with non modal elements depending on the actual configuration
+ */
+- (XCUIElementQuery *)fb_query;
 
 @end
 

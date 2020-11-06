@@ -7,12 +7,11 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-@import CocoaAsyncSocket;
-
 #import "FBMjpegServer.h"
 
 #import <objc/runtime.h>
 #import <MobileCoreServices/MobileCoreServices.h>
+#import <CocoaAsyncSocket/GCDAsyncSocket.h>
 #import "FBApplication.h"
 #import "FBConfiguration.h"
 #import "FBLogger.h"
@@ -31,200 +30,359 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
 
 @interface FBMjpegServer()
 
-@property (nonatomic) NSTimer *mainTimer;
-@property (nonatomic) dispatch_queue_t backgroundQueue;
-@property (nonatomic) NSMutableArray<GCDAsyncSocket *> *activeClients;
-@property (nonatomic) NSUInteger currentFramerate;
-@property (nonatomic) XCUIScreen *mainScreen;
-@property (nonatomic) CGRect screenRect;
-@property (nonatomic) CGRect screenActualRect;
+
+//@property (nonatomic) NSTimer *mainTimer;
+//@property (nonatomic) dispatch_queue_t backgroundQueue;
+//@property (nonatomic) NSMutableArray<GCDAsyncSocket *> *activeClients;
+//@property (nonatomic) NSUInteger currentFramerate;
+//@property (nonatomic) XCUIScreen *mainScreen;
+//@property (nonatomic) CGRect screenRect;
+//@property (nonatomic) CGRect screenActualRect;
+
+@property (nonatomic, readonly) dispatch_queue_t backgroundQueue;
+@property (nonatomic, readonly) NSMutableArray<GCDAsyncSocket *> *listeningClients;
+@property (nonatomic, readonly) mach_timebase_info_data_t timebaseInfo;
+@property (nonatomic, readonly) FBImageIOScaler *imageScaler;
 
 @end
 
 
 @implementation FBMjpegServer
 
+//- (instancetype)init
+//{
+//    if ((self = [super init])) {
+//        _activeClients = [NSMutableArray array];
+//        _backgroundQueue = dispatch_queue_create(QUEUE_NAME, DISPATCH_QUEUE_SERIAL);
+//        Class xcScreenClass = objc_lookUpClass("XCUIScreen");
+//        self.mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
+//        XCUIApplication *app = FBApplication.fb_activeApplication;
+//        CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
+//        self.screenActualRect = CGRectMake(0, 0, screenSize.width * [[DeviceInfoManager sharedManager] getScaleFactor], screenSize.height * [[DeviceInfoManager sharedManager] getScaleFactor]);
+//        self.screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
+//        if (![self.class canStreamScreenshots]) {
+//            if (![self.class canScheduleTimerBlock]) {
+//                [self resetTimer2:FBConfiguration.mjpegServerFramerate];
+//                return self;
+//            }
+//            [FBLogger log:@"MJPEG server cannot start because the current iOS version is not supported"];
+//            [self resetTimer3:FBConfiguration.mjpegServerFramerate];
+//            return self;
+//        }
+//
+//        [self resetTimer:FBConfiguration.mjpegServerFramerate];
+//    }
+//    return self;
+//}
+//
+//- (void)resetTimer:(NSUInteger)framerate
+//{
+//    if (self.mainTimer && self.mainTimer.valid) {
+//        [self.mainTimer invalidate];
+//    }
+//    self.currentFramerate = framerate;
+//    NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
+//    self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval
+//                                                     repeats:YES
+//                                                       block:^(NSTimer * _Nonnull timer) {
+//                                                           if (self.currentFramerate == FBConfiguration.mjpegServerFramerate) {
+//                                                               [self streamScreenshot];
+//                                                           } else {
+//                                                               [self resetTimer:FBConfiguration.mjpegServerFramerate];
+//                                                           }
+//                                                       }];
+//}
+//
+//- (void)resetTimer2:(NSUInteger)framerate
+//{
+//    if (self.mainTimer && self.mainTimer.valid) {
+//        [self.mainTimer invalidate];
+//    }
+//    self.currentFramerate = framerate;
+//    NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
+//    __weak typeof(self)weak_self = self;
+//    self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval target:weak_self selector:@selector(streamScreenshot2) userInfo:nil repeats:YES];
+//}
+//
+//- (void)resetTimer3:(NSUInteger)framerate
+//{
+//    if (self.mainTimer && self.mainTimer.valid) {
+//        [self.mainTimer invalidate];
+//    }
+//    self.currentFramerate = framerate;
+//    NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
+//    self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval
+//                                                     repeats:YES
+//                                                       block:^(NSTimer * _Nonnull timer) {
+//                                                           if (self.currentFramerate == FBConfiguration.mjpegServerFramerate) {
+//                                                               [self streamScreenshot2];
+//                                                           } else {
+//                                                               [self resetTimer3:FBConfiguration.mjpegServerFramerate];
+//                                                           }
+//                                                       }];
+//}
+//
+//- (void)streamScreenshot
+//{
+//    @synchronized (self.activeClients) {
+//        if (0 == self.activeClients.count) {
+//            return;
+//        }
+//    }
+//
+//    __block NSData *screenshotData = nil;
+//    CGFloat compressionQuality = FBConfiguration.mjpegServerScreenshotQuality / 100.0f;
+//    id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
+//    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+//    [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]
+//                                       withRect:CGRectNull
+//                                            uti:(__bridge id)kUTTypeJPEG
+//                             compressionQuality:screenshotCompressionQuality
+//                                      withReply:^(NSData *data, NSError *error) {
+//                                          screenshotData = data;
+//                                          dispatch_semaphore_signal(sem);
+//                                      }];
+//    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
+//    if (nil == screenshotData) {
+//        return;
+//    }
+//
+//    dispatch_async(self.backgroundQueue, ^{
+//        NSString *chunkHeader = [NSString stringWithFormat:@"--BoundaryString\r\nContent-type: image/jpg\r\nContent-Length: %@\r\n\r\n", @(screenshotData.length)];
+//        NSMutableData *chunk = [[chunkHeader dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
+//        [chunk appendData:screenshotData];
+//        [chunk appendData:(id)[@"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+//        @synchronized (self.activeClients) {
+//            for (GCDAsyncSocket *client in self.activeClients) {
+//                [client writeData:chunk withTimeout:-1 tag:0];
+//            }
+//        }
+//    });
+//}
+//
+//- (void)streamScreenshot2
+//{
+//    @synchronized (self.activeClients) {
+//        if (0 == self.activeClients.count) {
+//            return;
+//        }
+//    }
+//    __block NSData *screenshotData = nil;
+//    NSError *error;
+//    XCUIApplication *app = FBApplication.fb_activeApplication;
+//    CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
+//    CGRect tmpScreenActualRect = CGRectMake(0, 0, screenSize.width * [[DeviceInfoManager sharedManager] getScaleFactor], screenSize.height * [[DeviceInfoManager sharedManager] getScaleFactor]);
+//    screenshotData = [self.mainScreen screenshotDataForQuality:2 rect:tmpScreenActualRect error:&error];
+//
+//    if (nil == screenshotData || error != nil) {
+//        return;
+//    }
+//
+//    dispatch_async(self.backgroundQueue, ^{
+//        NSString *chunkHeader = [NSString stringWithFormat:@"--BoundaryString\r\nContent-type: image/jpg\r\nContent-Length: %@\r\n\r\n", @(screenshotData.length)];
+//        NSMutableData *chunk = [[chunkHeader dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
+//        [chunk appendData:screenshotData];
+//        [chunk appendData:(id)[@"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+//        @synchronized (self.activeClients) {
+//            for (GCDAsyncSocket *client in self.activeClients) {
+//                [client writeData:chunk withTimeout:-1 tag:0];
+//            }
+//        }
+//    });
+//}
+//
+//+ (BOOL)canStreamScreenshots
+//{
+//    static dispatch_once_t onceCanStream;
+//    static BOOL result;
+//    dispatch_once(&onceCanStream, ^{
+//        result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
+//    });
+//    return result;
+//}
+//
+//+ (BOOL)canScheduleTimerBlock
+//{
+//    static dispatch_once_t canSTB;
+//    static BOOL result;
+//    dispatch_once(&canSTB, ^{
+//        result = [NSTimer respondsToSelector:@selector(scheduledTimerWithTimeInterval:repeats:block:)];
+//    });
+//    return result;
+//}
+//
+//- (void)didClientConnect:(GCDAsyncSocket *)newClient
+//{
+//  [FBLogger logFmt:@"Got screenshots broadcast client connection at %@:%d", newClient.connectedHost, newClient.connectedPort];
+//  // Start broadcast only after there is any data from the client
+//  [newClient readDataWithTimeout:-1 tag:0];
+//}
+//
+//- (void)didClientSendData:(GCDAsyncSocket *)client
+//{
+//    dispatch_async(self.backgroundQueue, ^{
+//        NSString *streamHeader = [NSString stringWithFormat:@"HTTP/1.0 200 OK\r\nServer: %@\r\nConnection: close\r\nMax-Age: 0\r\nExpires: 0\r\nCache-Control: no-cache, private\r\nPragma: no-cache\r\nContent-Type: multipart/x-mixed-replace; boundary=--BoundaryString\r\n\r\n", SERVER_NAME];
+//        [newClient writeData:(id)[streamHeader dataUsingEncoding:NSUTF8StringEncoding] withTimeout:-1 tag:0];
+//    });
+//
+//    @synchronized (self.activeClients) {
+//        [self.activeClients removeAllObjects];
+//        [self.activeClients addObjectsFromArray:activeClients];
+//    }
+//}
+//
+//- (void)didClientDisconnect:(GCDAsyncSocket *)client
+//{
+//    @synchronized (self.activeClients) {
+//        [self.activeClients removeAllObjects];
+//        [self.activeClients addObjectsFromArray:activeClients];
+//    }
+//}
+
+
 - (instancetype)init
 {
-    if ((self = [super init])) {
-        _activeClients = [NSMutableArray array];
-        _backgroundQueue = dispatch_queue_create(QUEUE_NAME, DISPATCH_QUEUE_SERIAL);
-        Class xcScreenClass = objc_lookUpClass("XCUIScreen");
-        self.mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
-        XCUIApplication *app = FBApplication.fb_activeApplication;
-        CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
-        self.screenActualRect = CGRectMake(0, 0, screenSize.width * [[DeviceInfoManager sharedManager] getScaleFactor], screenSize.height * [[DeviceInfoManager sharedManager] getScaleFactor]);
-        self.screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
-        if (![self.class canStreamScreenshots]) {
-            if (![self.class canScheduleTimerBlock]) {
-                [self resetTimer2:FBConfiguration.mjpegServerFramerate];
-                return self;
-            }
-            [FBLogger log:@"MJPEG server cannot start because the current iOS version is not supported"];
-            [self resetTimer3:FBConfiguration.mjpegServerFramerate];
-            return self;
-        }
-        
-        [self resetTimer:FBConfiguration.mjpegServerFramerate];
-    }
-    return self;
+  if ((self = [super init])) {
+    _listeningClients = [NSMutableArray array];
+    dispatch_queue_attr_t queueAttributes = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0);
+    _backgroundQueue = dispatch_queue_create(QUEUE_NAME, queueAttributes);
+    mach_timebase_info(&_timebaseInfo);
+    dispatch_async(_backgroundQueue, ^{
+      [self streamScreenshot];
+    });
+    _imageScaler = [[FBImageIOScaler alloc] init];
+  }
+  return self;
 }
 
-- (void)resetTimer:(NSUInteger)framerate
+- (void)scheduleNextScreenshotWithInterval:(uint64_t)timerInterval timeStarted:(uint64_t)timeStarted
 {
-    if (self.mainTimer && self.mainTimer.valid) {
-        [self.mainTimer invalidate];
-    }
-    self.currentFramerate = framerate;
-    NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
-    self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval
-                                                     repeats:YES
-                                                       block:^(NSTimer * _Nonnull timer) {
-                                                           if (self.currentFramerate == FBConfiguration.mjpegServerFramerate) {
-                                                               [self streamScreenshot];
-                                                           } else {
-                                                               [self resetTimer:FBConfiguration.mjpegServerFramerate];
-                                                           }
-                                                       }];
-}
-
-- (void)resetTimer2:(NSUInteger)framerate
-{
-    if (self.mainTimer && self.mainTimer.valid) {
-        [self.mainTimer invalidate];
-    }
-    self.currentFramerate = framerate;
-    NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
-    __weak typeof(self)weak_self = self;
-    self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval target:weak_self selector:@selector(streamScreenshot2) userInfo:nil repeats:YES];
-}
-
-- (void)resetTimer3:(NSUInteger)framerate
-{
-    if (self.mainTimer && self.mainTimer.valid) {
-        [self.mainTimer invalidate];
-    }
-    self.currentFramerate = framerate;
-    NSTimeInterval timerInterval = 1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate);
-    self.mainTimer = [NSTimer scheduledTimerWithTimeInterval:timerInterval
-                                                     repeats:YES
-                                                       block:^(NSTimer * _Nonnull timer) {
-                                                           if (self.currentFramerate == FBConfiguration.mjpegServerFramerate) {
-                                                               [self streamScreenshot2];
-                                                           } else {
-                                                               [self resetTimer3:FBConfiguration.mjpegServerFramerate];
-                                                           }
-                                                       }];
+  uint64_t timeElapsed = mach_absolute_time() - timeStarted;
+  int64_t nextTickDelta = timerInterval - timeElapsed * self.timebaseInfo.numer / self.timebaseInfo.denom;
+  if (nextTickDelta > 0) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, nextTickDelta), self.backgroundQueue, ^{
+      [self streamScreenshot];
+    });
+  } else {
+    // Try to do our best to keep the FPS at a decent level
+    dispatch_async(self.backgroundQueue, ^{
+      [self streamScreenshot];
+    });
+  }
 }
 
 - (void)streamScreenshot
 {
-    @synchronized (self.activeClients) {
-        if (0 == self.activeClients.count) {
-            return;
-        }
+  if (![self.class canStreamScreenshots]) {
+    [FBLogger log:@"MJPEG server cannot start because the current iOS version is not supported"];
+    return;
+  }
+
+  NSUInteger framerate = FBConfiguration.mjpegServerFramerate;
+  uint64_t timerInterval = (uint64_t)(1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate) * NSEC_PER_SEC);
+  uint64_t timeStarted = mach_absolute_time();
+  @synchronized (self.listeningClients) {
+    if (0 == self.listeningClients.count) {
+      [self scheduleNextScreenshotWithInterval:timerInterval timeStarted:timeStarted];
+      return;
     }
-    
-    __block NSData *screenshotData = nil;
-    CGFloat compressionQuality = FBConfiguration.mjpegServerScreenshotQuality / 100.0f;
-    id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]
+  }
+
+  __block NSData *screenshotData = nil;
+
+  CGFloat scalingFactor = [FBConfiguration mjpegScalingFactor] / 100.0f;
+  BOOL usesScaling = fabs(FBMaxScalingFactor - scalingFactor) > DBL_EPSILON;
+
+  CGFloat compressionQuality = FBConfiguration.mjpegServerScreenshotQuality / 100.0f;
+  // If scaling is applied we perform another JPEG compression after scaling
+  // To get the desired compressionQuality we need to do a lossless compression here
+  CGFloat screenshotCompressionQuality = usesScaling ? FBMaxCompressionQuality : compressionQuality;
+
+  id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
+  dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+  [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]
                                        withRect:CGRectNull
                                             uti:(__bridge id)kUTTypeJPEG
-                             compressionQuality:compressionQuality
+                             compressionQuality:screenshotCompressionQuality
                                       withReply:^(NSData *data, NSError *error) {
-                                          screenshotData = data;
-                                          dispatch_semaphore_signal(sem);
-                                      }];
-    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
-    if (nil == screenshotData) {
-        return;
+    if (error != nil) {
+      [FBLogger logFmt:@"Error taking screenshot: %@", [error description]];
     }
-    
-    dispatch_async(self.backgroundQueue, ^{
-        NSString *chunkHeader = [NSString stringWithFormat:@"--BoundaryString\r\nContent-type: image/jpg\r\nContent-Length: %@\r\n\r\n", @(screenshotData.length)];
-        NSMutableData *chunk = [[chunkHeader dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
-        [chunk appendData:screenshotData];
-        [chunk appendData:(id)[@"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-        @synchronized (self.activeClients) {
-            for (GCDAsyncSocket *client in self.activeClients) {
-                [client writeData:chunk withTimeout:-1 tag:0];
-            }
-        }
-    });
+    screenshotData = data;
+    dispatch_semaphore_signal(sem);
+  }];
+  dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
+  if (nil == screenshotData) {
+    [self scheduleNextScreenshotWithInterval:timerInterval timeStarted:timeStarted];
+    return;
+  }
+
+  if (usesScaling) {
+    [self.imageScaler submitImage:screenshotData
+                    scalingFactor:scalingFactor
+               compressionQuality:compressionQuality
+                completionHandler:^(NSData * _Nonnull scaled) {
+                  [self sendScreenshot:scaled];
+                }];
+  } else {
+    [self sendScreenshot:screenshotData];
+  }
+
+  [self scheduleNextScreenshotWithInterval:timerInterval timeStarted:timeStarted];
 }
 
-- (void)streamScreenshot2
-{
-    @synchronized (self.activeClients) {
-        if (0 == self.activeClients.count) {
-            return;
-        }
+- (void)sendScreenshot:(NSData *)screenshotData {
+  NSString *chunkHeader = [NSString stringWithFormat:@"--BoundaryString\r\nContent-type: image/jpg\r\nContent-Length: %@\r\n\r\n", @(screenshotData.length)];
+  NSMutableData *chunk = [[chunkHeader dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
+  [chunk appendData:screenshotData];
+  [chunk appendData:(id)[@"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+  @synchronized (self.listeningClients) {
+    for (GCDAsyncSocket *client in self.listeningClients) {
+      [client writeData:chunk withTimeout:-1 tag:0];
     }
-    __block NSData *screenshotData = nil;
-    NSError *error;
-    XCUIApplication *app = FBApplication.fb_activeApplication;
-    CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
-    CGRect tmpScreenActualRect = CGRectMake(0, 0, screenSize.width * [[DeviceInfoManager sharedManager] getScaleFactor], screenSize.height * [[DeviceInfoManager sharedManager] getScaleFactor]);
-    screenshotData = [self.mainScreen screenshotDataForQuality:2 rect:tmpScreenActualRect error:&error];
-
-    if (nil == screenshotData || error != nil) {
-        return;
-    }
-    
-    dispatch_async(self.backgroundQueue, ^{
-        NSString *chunkHeader = [NSString stringWithFormat:@"--BoundaryString\r\nContent-type: image/jpg\r\nContent-Length: %@\r\n\r\n", @(screenshotData.length)];
-        NSMutableData *chunk = [[chunkHeader dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
-        [chunk appendData:screenshotData];
-        [chunk appendData:(id)[@"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-        @synchronized (self.activeClients) {
-            for (GCDAsyncSocket *client in self.activeClients) {
-                [client writeData:chunk withTimeout:-1 tag:0];
-            }
-        }
-    });
+  }
 }
 
 + (BOOL)canStreamScreenshots
 {
-    static dispatch_once_t onceCanStream;
-    static BOOL result;
-    dispatch_once(&onceCanStream, ^{
-        result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
-    });
-    return result;
+  static dispatch_once_t onceCanStream;
+  static BOOL result;
+  dispatch_once(&onceCanStream, ^{
+    result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
+  });
+  return result;
 }
 
-+ (BOOL)canScheduleTimerBlock
+- (void)didClientConnect:(GCDAsyncSocket *)newClient
 {
-    static dispatch_once_t canSTB;
-    static BOOL result;
-    dispatch_once(&canSTB, ^{
-        result = [NSTimer respondsToSelector:@selector(scheduledTimerWithTimeInterval:repeats:block:)];
-    });
-    return result;
+  [FBLogger logFmt:@"Got screenshots broadcast client connection at %@:%d", newClient.connectedHost, newClient.connectedPort];
+  // Start broadcast only after there is any data from the client
+  [newClient readDataWithTimeout:-1 tag:0];
 }
 
-- (void)didClientConnect:(GCDAsyncSocket *)newClient activeClients:(NSArray<GCDAsyncSocket *> *)activeClients
+- (void)didClientSendData:(GCDAsyncSocket *)client
 {
-    dispatch_async(self.backgroundQueue, ^{
-        NSString *streamHeader = [NSString stringWithFormat:@"HTTP/1.0 200 OK\r\nServer: %@\r\nConnection: close\r\nMax-Age: 0\r\nExpires: 0\r\nCache-Control: no-cache, private\r\nPragma: no-cache\r\nContent-Type: multipart/x-mixed-replace; boundary=--BoundaryString\r\n\r\n", SERVER_NAME];
-        [newClient writeData:(id)[streamHeader dataUsingEncoding:NSUTF8StringEncoding] withTimeout:-1 tag:0];
-    });
-    
-    @synchronized (self.activeClients) {
-        [self.activeClients removeAllObjects];
-        [self.activeClients addObjectsFromArray:activeClients];
+  @synchronized (self.listeningClients) {
+    if ([self.listeningClients containsObject:client]) {
+      return;
     }
+  }
+
+  [FBLogger logFmt:@"Starting screenshots broadcast for the client at %@:%d", client.connectedHost, client.connectedPort];
+  NSString *streamHeader = [NSString stringWithFormat:@"HTTP/1.0 200 OK\r\nServer: %@\r\nConnection: close\r\nMax-Age: 0\r\nExpires: 0\r\nCache-Control: no-cache, private\r\nPragma: no-cache\r\nContent-Type: multipart/x-mixed-replace; boundary=--BoundaryString\r\n\r\n", SERVER_NAME];
+  [client writeData:(id)[streamHeader dataUsingEncoding:NSUTF8StringEncoding] withTimeout:-1 tag:0];
+  @synchronized (self.listeningClients) {
+    [self.listeningClients addObject:client];
+  }
 }
 
-- (void)didClientDisconnect:(NSArray<GCDAsyncSocket *> *)activeClients
+- (void)didClientDisconnect:(GCDAsyncSocket *)client
 {
-    @synchronized (self.activeClients) {
-        [self.activeClients removeAllObjects];
-        [self.activeClients addObjectsFromArray:activeClients];
-    }
+  @synchronized (self.listeningClients) {
+    [self.listeningClients removeObject:client];
+  }
+  [FBLogger log:@"Disconnected a client from screenshots broadcast"];
 }
+
 
 @end

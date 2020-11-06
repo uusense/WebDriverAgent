@@ -9,14 +9,17 @@
 
 #import "XCUIElement+FBUID.h"
 
-#import "XCUIElement+FBUtilities.h"
 #import "FBElementUtils.h"
+#import "XCUIApplication.h"
+#import "XCUIElement+FBUtilities.h"
 
 @implementation XCUIElement (FBUID)
 
 - (NSString *)fb_uid
 {
-  return self.fb_lastSnapshot.fb_uid;
+  return [self isKindOfClass:XCUIApplication.class]
+    ? [FBElementUtils uidWithAccessibilityElement:[(XCUIApplication *)self accessibilityElement]]
+    : [self fb_takeSnapshot].fb_uid;
 }
 
 @end

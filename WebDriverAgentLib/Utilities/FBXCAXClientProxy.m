@@ -9,11 +9,57 @@
 
 #import "FBXCAXClientProxy.h"
 
+#import <objc/runtime.h>
+
+#import "FBConfiguration.h"
 #import "FBLogger.h"
 #import "XCAXClient_iOS.h"
 #import "XCUIDevice.h"
 
 static id FBAXClient = nil;
+
+@implementation XCAXClient_iOS (WebDriverAgent)
+
+/**
+ Parameters for traversing elements tree from parents to children while requesting XCElementSnapshot.
+
+ @return dictionary with parameters for element's snapshot request
+ */
+- (NSDictionary *)fb_getParametersForElementSnapshot
+{
+  return FBConfiguration.snapshotRequestParameters;
+}
+
++ (void)load
+{
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+      Class class = [self class];
+
+      SEL originalSelector = @selector(defaultParameters);
+      SEL swizzledSelector = @selector(fb_getParametersForElementSnapshot);
+
+      Method originalMethod = class_getInstanceMethod(class, originalSelector);
+      Method swizzledMethod = class_getInstanceMethod(class, swizzledSelector);
+
+      BOOL didAddMethod =
+          class_addMethod(class,
+              originalSelector,
+              method_getImplementation(swizzledMethod),
+              method_getTypeEncoding(swizzledMethod));
+
+      if (didAddMethod) {
+          class_replaceMethod(class,
+              swizzledSelector,
+              method_getImplementation(originalMethod),
+              method_getTypeEncoding(originalMethod));
+      } else {
+          method_exchangeImplementations(originalMethod, swizzledMethod);
+      }
+  });
+}
+
+@end
 
 @implementation FBXCAXClientProxy
 
@@ -30,6 +76,35 @@ static id FBAXClient = nil;
     }
   });
   return instance;
+}
+
+- (BOOL)setAXTimeout:(NSTimeInterval)timeout error:(NSError **)error
+{
+  return [FBAXClient _setAXTimeout:timeout error:error];
+}
+
+- (XCElementSnapshot *)snapshotForElement:(XCAccessibilityElement *)element
+                               attributes:(NSArray<NSString *> *)attributes
+                                 maxDepth:(nullable NSNumber *)maxDepth
+                                    error:(NSError **)error
+{
+  NSMutableDictionary *parameters = nil;
+  if (nil != maxDepth) {
+    parameters = self.defaultParameters.mutableCopy;
+    parameters[FBSnapshotMaxDepthKey] = maxDepth;
+  }
+  if ([FBAXClient respondsToSelector:@selector(requestSnapshotForElement:attributes:parameters:error:)]) {
+    id result = [FBAXClient requestSnapshotForElement:element
+                                           attributes:attributes
+                                           parameters:[parameters copy]
+                                                error:error];
+    XCElementSnapshot *snapshot = [result valueForKey:@"_rootElementSnapshot"];
+    return nil == snapshot ? result : snapshot;
+  }
+  return [FBAXClient snapshotForElement:element
+                             attributes:attributes
+                             parameters:[parameters copy]
+                                  error:error];
 }
 
 - (NSArray<XCAccessibilityElement *> *)activeApplications
@@ -62,7 +137,7 @@ static id FBAXClient = nil;
                                                  attributes:attributes
                                                       error:&error];
     if (error) {
-      [FBLogger logFmt:@"Cannot retrieve the list of %@ element attributes: %@", attributes, error.description];
+      [FBLogger logFmt:@"Cannot retrieve element attribute(s) %@. Original error: %@", attributes, error.description];
     }
     return result;
   }

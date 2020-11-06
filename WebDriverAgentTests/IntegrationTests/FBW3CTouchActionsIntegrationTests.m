@@ -32,7 +32,7 @@
 {
   [[XCUIDevice sharedDevice] fb_setDeviceInterfaceOrientation:orientation];
   NSError *error;
-  XCTAssertTrue([self.testedApplication fb_performW3CTouchActions:gesture elementCache:nil error:&error]);
+  XCTAssertTrue([self.testedApplication fb_performW3CActions:gesture elementCache:nil error:&error]);
   FBAssertWaitTillBecomesTrue(self.testedApplication.alerts.count > 0);
 }
 
@@ -154,6 +154,17 @@
             ],
         },
       ],
+
+    // Chain element with singe up action
+    @[@{
+        @"type": @"pointer",
+        @"id": @"finger1",
+        @"parameters": @{@"pointerType": @"touch"},
+        @"actions": @[
+            @{@"type": @"pointerUp"},
+            ],
+        },
+      ],
     
     // Chain element containing action item without y coordinate
     @[@{
@@ -259,7 +270,7 @@
   
   for (NSArray<NSDictionary<NSString *, id> *> *invalidGesture in invalidGestures) {
     NSError *error;
-    XCTAssertFalse([self.testedApplication fb_performW3CTouchActions:invalidGesture elementCache:nil error:&error]);
+    XCTAssertFalse([self.testedApplication fb_performW3CActions:invalidGesture elementCache:nil error:&error]);
     XCTAssertNotNil(error);
   }
 }
@@ -371,14 +382,13 @@
 {
   NSString *previousValue = self.pickerWheel.value;
   NSError *error;
-  XCTAssertTrue([self.testedApplication fb_performW3CTouchActions:gesture elementCache:nil error:&error]);
+  XCTAssertTrue([self.testedApplication fb_performW3CActions:gesture elementCache:nil error:&error]);
   XCTAssertNil(error);
   XCTAssertTrue([[[[FBRunLoopSpinner new]
                    timeout:2.0]
                   timeoutErrorMessage:@"Picker wheel value has not been changed after 2 seconds timeout"]
                  spinUntilTrue:^BOOL{
-                   [self.pickerWheel fb_nativeResolve];
-                   return ![self.pickerWheel.value isEqualToString:previousValue];
+                   return ![self.pickerWheel.fb_takeSnapshot.value isEqualToString:previousValue];
                  }
                  error:&error]);
   XCTAssertNil(error);
@@ -395,8 +405,7 @@
       @"actions": @[
           @{@"type": @"pointerMove", @"duration": @0, @"origin": self.pickerWheel, @"x": @0, @"y":@0},
           @{@"type": @"pointerDown"},
-          @{@"type": @"pause", @"duration": @500},
-          @{@"type": @"pointerMove", @"duration": @0, @"origin": self.pickerWheel, @"x": @0, @"y": @(pickerFrame.size.height / 2)},
+          @{@"type": @"pointerMove", @"duration": @500, @"origin": self.pickerWheel, @"x": @0, @"y": @(pickerFrame.size.height / 2)},
           @{@"type": @"pointerUp"},
           ],
       },
@@ -415,8 +424,7 @@
       @"actions": @[
           @{@"type": @"pointerMove", @"duration": @250, @"origin": self.pickerWheel, @"x": @0, @"y": @0},
           @{@"type": @"pointerDown"},
-          @{@"type": @"pause", @"duration": @500},
-          @{@"type": @"pointerMove", @"duration": @0, @"origin": @"pointer", @"x": @0, @"y": @(-pickerFrame.size.height / 2)},
+          @{@"type": @"pointerMove", @"duration": @500, @"origin": @"pointer", @"x": @0, @"y": @(-pickerFrame.size.height / 2)},
           @{@"type": @"pointerUp"},
           ],
       },
@@ -435,8 +443,7 @@
       @"actions": @[
           @{@"type": @"pointerMove", @"duration": @0, @"x": @(pickerFrame.origin.x + pickerFrame.size.width / 2), @"y": @(pickerFrame.origin.y + pickerFrame.size.height / 2)},
           @{@"type": @"pointerDown"},
-          @{@"type": @"pause", @"duration": @500},
-          @{@"type": @"pointerMove", @"duration": @0, @"origin": @"pointer", @"x": @0, @"y": @(pickerFrame.size.height / 2)},
+          @{@"type": @"pointerMove", @"duration": @500, @"origin": @"pointer", @"x": @0, @"y": @(pickerFrame.size.height / 2)},
           @{@"type": @"pointerUp"},
           ],
       },

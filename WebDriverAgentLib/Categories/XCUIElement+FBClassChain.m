@@ -11,8 +11,7 @@
 
 #import "FBClassChainQueryParser.h"
 #import "FBXCodeCompatibility.h"
-
-NSString *const FBClassChainQueryParseException = @"FBClassChainQueryParseException";
+#import "FBExceptions.h"
 
 @implementation XCUIElement (FBClassChain)
 
@@ -58,13 +57,13 @@ NSString *const FBClassChainQueryParseException = @"FBClassChainQueryParseExcept
     if (query) {
       query = [query descendantsMatchingType:item.type];
     } else {
-      query = [self descendantsMatchingType:item.type];
+      query = [self.fb_query descendantsMatchingType:item.type];
     }
   } else {
     if (query) {
       query = [query childrenMatchingType:item.type];
     } else {
-      query = [self childrenMatchingType:item.type];
+      query = [self.fb_query childrenMatchingType:item.type];
     }
   }
   if (item.predicates) {
@@ -85,7 +84,7 @@ NSString *const FBClassChainQueryParseException = @"FBClassChainQueryParseExcept
     XCUIElement *result = query.fb_firstMatch;
     return result ? @[result] : @[];
   }
-  NSArray<XCUIElement *> *allMatches = query.allElementsBoundByAccessibilityElement;
+  NSArray<XCUIElement *> *allMatches = query.fb_allMatches;
   if (0 == item.position.integerValue) {
     return allMatches;
   }

@@ -10,11 +10,15 @@
 #import "FBXPath.h"
 
 #import "FBConfiguration.h"
+#import "FBExceptions.h"
 #import "FBLogger.h"
 #import "NSString+FBXMLSafeString.h"
+#import "XCElementSnapshot+FBHelpers.h"
 #import "XCUIElement.h"
+#import "XCUIElement+FBCaching.h"
 #import "XCUIElement+FBUtilities.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
+#import "XCTestPrivateSymbols.h"
 
 
 @interface FBElementAttribute : NSObject
@@ -94,8 +98,6 @@ const static char *_UTF8Encoding = "UTF-8";
 
 static NSString *const kXMLIndexPathKey = @"private_indexPath";
 static NSString *const topNodeIndexPath = @"top";
-NSString *const FBInvalidXPathException = @"FBInvalidXPathException";
-NSString *const FBXPathQueryEvaluationException = @"FBXPathQueryEvaluationException";
 
 @implementation FBXPath
 
@@ -107,10 +109,15 @@ NSString *const FBXPathQueryEvaluationException = @"FBXPathQueryEvaluationExcept
 }
 
 + (nullable NSString *)xmlStringWithRootElement:(id<FBElement>)root
+                            excludingAttributes:(nullable NSArray<NSString *> *)excludedAttributes
 {
   xmlDocPtr doc;
   xmlTextWriterPtr writer = xmlNewTextWriterDoc(&doc, 0);
-  int rc = [self xmlRepresentationWithRootElement:root writer:writer elementStore:nil query:nil];
+  int rc = [self xmlRepresentationWithRootElement:root
+                                           writer:writer
+                                     elementStore:nil
+                                            query:nil
+                              excludingAttributes:excludedAttributes];
   if (rc < 0) {
     xmlFreeTextWriter(writer);
     xmlFreeDoc(doc);
@@ -134,7 +141,11 @@ NSString *const FBXPathQueryEvaluationException = @"FBXPathQueryEvaluationExcept
     return [self throwException:FBXPathQueryEvaluationException forQuery:xpathQuery];
   }
   NSMutableDictionary *elementStore = [NSMutableDictionary dictionary];
-  int rc = [self xmlRepresentationWithRootElement:root writer:writer elementStore:elementStore query:xpathQuery];
+  int rc = [self xmlRepresentationWithRootElement:root
+                                           writer:writer
+                                     elementStore:elementStore
+                                            query:xpathQuery
+                              excludingAttributes:nil];
   if (rc < 0) {
     xmlFreeTextWriter(writer);
     xmlFreeDoc(doc);
@@ -195,19 +206,42 @@ NSString *const FBXPathQueryEvaluationException = @"FBXPathQueryEvaluationExcept
   return result.copy;
 }
 
-+ (int)xmlRepresentationWithRootElement:(id<FBElement>)root writer:(xmlTextWriterPtr)writer elementStore:(nullable NSMutableDictionary *)elementStore query:(nullable NSString*)query
++ (int)xmlRepresentationWithRootElement:(id<FBElement>)root
+                                 writer:(xmlTextWriterPtr)writer
+                           elementStore:(nullable NSMutableDictionary *)elementStore
+                                  query:(nullable NSString*)query
+                    excludingAttributes:(nullable NSArray<NSString *> *)excludedAttributes
 {
+  // Trying to be smart here and only including attributes, that were asked in the query, to the resulting document.
+  // This may speed up the lookup significantly in some cases
+  NSMutableSet<Class> *includedAttributes;
+  if (nil == query) {
+    includedAttributes = [NSMutableSet setWithArray:FBElementAttribute.supportedAttributes];
+    if (nil != excludedAttributes) {
+      for (NSString *excludedAttributeName in excludedAttributes) {
+        for (Class supportedAttribute in FBElementAttribute.supportedAttributes) {
+          if ([[supportedAttribute name] caseInsensitiveCompare:excludedAttributeName] == NSOrderedSame) {
+            [includedAttributes removeObject:supportedAttribute];
+            break;
+          }
+        }
+      }
+    }
+  } else {
+    includedAttributes = [self.class elementAttributesWithXPathQuery:query].mutableCopy;
+  }
+  [FBLogger logFmt:@"The following attributes were requested to be included into the XML: %@", includedAttributes];
+
   int rc = xmlTextWriterStartDocument(writer, NULL, _UTF8Encoding, NULL);
   if (rc < 0) {
     [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterStartDocument. Error code: %d", rc];
     return rc;
   }
-  // Trying to be smart here and only including attributes, that were asked in the query, to the resulting document.
-  // This may speed up the lookup significantly in some cases
+
   rc = [self writeXmlWithRootElement:root
                            indexPath:(elementStore != nil ? topNodeIndexPath : nil)
                         elementStore:elementStore
-                  includedAttributes:(query == nil ? nil : [self.class elementAttributesWithXPathQuery:query])
+                  includedAttributes:includedAttributes.copy
                               writer:writer];
   if (rc < 0) {
     [FBLogger log:@"Failed to generate XML presentation of a screen element"];
@@ -276,7 +310,7 @@ NSString *const FBXPathQueryEvaluationException = @"FBXPathQueryEvaluationExcept
   if (nil == str) {
     return NULL;
   }
-  
+
   NSString *safeString = [str fb_xmlSafeStringWithReplacement:@""];
   return [self.class xmlCharPtrForInput:[safeString cStringUsingEncoding:NSUTF8StringEncoding]];
 }
@@ -301,50 +335,43 @@ NSString *const FBXPathQueryEvaluationException = @"FBXPathQueryEvaluationExcept
   return 0;
 }
 
-+ (int)writeXmlWithRootElement:(id<FBElement>)root indexPath:(nullable NSString *)indexPath elementStore:(nullable NSMutableDictionary *)elementStore includedAttributes:(nullable NSSet<Class> *)includedAttributes writer:(xmlTextWriterPtr)writer
++ (int)writeXmlWithRootElement:(id<FBElement>)root
+                     indexPath:(nullable NSString *)indexPath
+                  elementStore:(nullable NSMutableDictionary *)elementStore
+            includedAttributes:(nullable NSSet<Class> *)includedAttributes
+                        writer:(xmlTextWriterPtr)writer
 {
   NSAssert((indexPath == nil && elementStore == nil) || (indexPath != nil && elementStore != nil), @"Either both or none of indexPath and elementStore arguments should be equal to nil", nil);
 
   XCElementSnapshot *currentSnapshot;
   NSArray<XCElementSnapshot *> *children;
   if ([root isKindOfClass:XCUIElement.class]) {
-    if ([FBConfiguration shouldUseTestManagerForVisibilityDetection]) {
-      [((XCUIElement *)root).application fb_waitUntilSnapshotIsStable];
+    XCUIElement *element = (XCUIElement *)root;
+    NSMutableArray<NSString *> *snapshotAttributes = [NSMutableArray arrayWithArray:FBStandardAttributeNames()];
+    if (nil == includedAttributes || [includedAttributes containsObject:FBVisibleAttribute.class]) {
+      [snapshotAttributes addObject:FB_XCAXAIsVisibleAttributeName];
+      // If the app is not idle state while we retrieve the visiblity state
+      // then the snapshot retrieval operation might freeze and time out
+      [element.application fb_waitUntilStableWithTimeout:FBConfiguration.animationCoolOffTimeout];
     }
-    if ([root isKindOfClass:XCUIApplication.class]) {
-      XCUIApplication *application = (XCUIApplication *)root;
-      currentSnapshot = application.fb_snapshotWithAttributes ?: application.fb_lastSnapshot;
-      NSArray<XCUIElement *> *windows = [((XCUIElement *)root) fb_filterDescendantsWithSnapshots:currentSnapshot.children];
-      NSMutableArray<XCElementSnapshot *> *windowsSnapshots = [NSMutableArray array];
-      for (XCUIElement* window in windows) {
-        XCElementSnapshot *windowSnapshot = window.fb_snapshotWithAttributes ?: window.fb_lastSnapshot;
-        if (nil == windowSnapshot) {
-          [FBLogger logFmt:@"Skipping source dumping for %@ because its snapshot cannot be resolved", window.description];
-          continue;
-        }
-        [windowsSnapshots addObject:windowSnapshot];
-      }
-      children = windowsSnapshots.copy;
-    } else {
-      XCUIElement *element = (XCUIElement *)root;
-      currentSnapshot = element.fb_snapshotWithAttributes ?: element.fb_lastSnapshot;
-      children = currentSnapshot.children;
-    }
+    currentSnapshot = [element fb_snapshotWithAttributes:snapshotAttributes.copy
+                                                maxDepth:nil];
+    children = currentSnapshot.children;
   } else {
     currentSnapshot = (XCElementSnapshot *)root;
     children = currentSnapshot.children;
   }
-  
+
   if (elementStore != nil && indexPath != nil && [indexPath isEqualToString:topNodeIndexPath]) {
     [elementStore setObject:currentSnapshot forKey:topNodeIndexPath];
   }
-  
+
   int rc = xmlTextWriterStartElement(writer, [self xmlCharPtrForInput:[currentSnapshot.wdType cStringUsingEncoding:NSUTF8StringEncoding]]);
   if (rc < 0) {
-    [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterStartElement. Error code: %d", rc];
+    [FBLogger logFmt:@"Failed to invoke libxml2>xmlTextWriterStartElement for the tag value '%@'. Error code: %d", currentSnapshot.wdType, rc];
     return rc;
   }
-  
+
   rc = [self recordElementAttributes:writer
                           forElement:currentSnapshot
                            indexPath:indexPath
@@ -538,13 +565,13 @@ static NSString *const FBAbstractMethodInvocationException = @"AbstractMethodInv
 
 + (NSString *)name
 {
-  NSString *errMsg = [NSString stringWithFormat:@"The asbtract method +(NSString *)name is expected to be overriden by %@", NSStringFromClass(self.class)];
+  NSString *errMsg = [NSString stringWithFormat:@"The abstract method +(NSString *)name is expected to be overriden by %@", NSStringFromClass(self.class)];
   @throw [NSException exceptionWithName:FBAbstractMethodInvocationException reason:errMsg userInfo:nil];
 }
 
 + (NSString *)valueForElement:(id<FBElement>)element
 {
-  NSString *errMsg = [NSString stringWithFormat:@"The asbtract method -(NSString *)value is expected to be overriden by %@", NSStringFromClass(self.class)];
+  NSString *errMsg = [NSString stringWithFormat:@"The abstract method -(NSString *)value is expected to be overriden by %@", NSStringFromClass(self.class)];
   @throw [NSException exceptionWithName:FBAbstractMethodInvocationException reason:errMsg userInfo:nil];
 }
 

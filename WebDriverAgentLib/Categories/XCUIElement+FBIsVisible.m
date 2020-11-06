@@ -12,23 +12,20 @@
 #import "FBConfiguration.h"
 #import "FBElementUtils.h"
 #import "FBMathUtils.h"
+#import "FBActiveAppDetectionPoint.h"
 #import "FBXCodeCompatibility.h"
-#import "FBXCTestDaemonsProxy.h"
 #import "XCAccessibilityElement+FBComparison.h"
 #import "XCElementSnapshot+FBHelpers.h"
 #import "XCElementSnapshot+FBHitPoint.h"
 #import "XCUIElement+FBUtilities.h"
-#import "XCTestManager_ManagerInterface-Protocol.h"
 #import "XCTestPrivateSymbols.h"
-#import "XCTRunnerDaemonSession.h"
-
-static const NSTimeInterval AX_TIMEOUT = 1.0;
 
 @implementation XCUIElement (FBIsVisible)
 
 - (BOOL)fb_isVisible
 {
-  return (self.fb_snapshotWithAttributes ?: self.fb_lastSnapshot).fb_isVisible;
+  return [self fb_snapshotWithAttributes:@[FB_XCAXAIsVisibleAttributeName]
+                                maxDepth:@1].fb_isVisible;
 }
 
 @end
@@ -141,32 +138,6 @@ static NSMutableDictionary<NSNumber *, NSMutableDictionary<NSString *, NSNumber 
   return NO;
 }
 
-- (XCAccessibilityElement *)elementAtPoint:(CGPoint)point
-{
-  __block XCAccessibilityElement *result = nil;
-  __block NSError *innerError = nil;
-  id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
-  dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-  [FBXCTestDaemonsProxy tryToSetAxTimeout:AX_TIMEOUT
-                                 forProxy:proxy
-                              withHandler:^(int res) {
-                                [proxy _XCT_requestElementAtPoint:point
-                                                            reply:^(XCAccessibilityElement *element, NSError *error) {
-                                                              if (nil == error) {
-                                                                result = element;
-                                                              } else {
-                                                                innerError = error;
-                                                              }
-                                                              dispatch_semaphore_signal(sem);
-                                                            }];
-                              }];
-  dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(AX_TIMEOUT * NSEC_PER_SEC)));
-  if (nil != innerError) {
-    [FBLogger logFmt:@"Cannot get the accessibility element for the point where %@ snapshot is located. Original error: '%@'", innerError.description, self.description];
-  }
-  return result;
-}
-
 - (BOOL)fb_isVisible
 {
   NSNumber *isVisible = self.additionalAttributes[FB_XCAXAIsVisibleAttribute];
@@ -184,14 +155,12 @@ static NSMutableDictionary<NSNumber *, NSMutableDictionary<NSString *, NSNumber 
     return [self fb_cacheVisibilityWithValue:NO forAncestors:nil];
   }
 
+  NSArray<XCElementSnapshot *> *ancestors = self.fb_ancestors;
   if ([FBConfiguration shouldUseTestManagerForVisibilityDetection]) {
-    NSString *visibleAttrName = [NSString stringWithCString:FB_XCAXAIsVisibleAttributeName
-                                                   encoding:NSUTF8StringEncoding];
-    BOOL visibleAttrValue = [(NSNumber *)[self fb_attributeValue:visibleAttrName] boolValue];
-    return [self fb_cacheVisibilityWithValue:visibleAttrValue forAncestors:nil];
+    BOOL visibleAttrValue = [(NSNumber *)[self fb_attributeValue:FB_XCAXAIsVisibleAttributeName] boolValue];
+    return [self fb_cacheVisibilityWithValue:visibleAttrValue forAncestors:ancestors];
   }
 
-  NSArray<XCElementSnapshot *> *ancestors = self.fb_ancestors;
   XCElementSnapshot *parentWindow = ancestors.count > 1 ? [ancestors objectAtIndex:ancestors.count - 2] : nil;
   CGRect visibleRect = selfFrame;
   if (nil != parentWindow) {
@@ -214,13 +183,13 @@ static NSMutableDictionary<NSNumber *, NSMutableDictionary<NSString *, NSNumber 
     midPoint = FBInvertPointForApplication(midPoint, appFrame.size, FBApplication.fb_activeApplication.interfaceOrientation);
   }
 #endif
-  XCAccessibilityElement *hitElement = [self elementAtPoint:midPoint];
+  XCAccessibilityElement *hitElement = [FBActiveAppDetectionPoint axElementWithPoint:midPoint];
   if (nil != hitElement) {
-    if ([self.accessibilityElement isEqualToElement:hitElement]) {
+    if ([self.accessibilityElement fb_isEqualToElement:hitElement]) {
       return [self fb_cacheVisibilityWithValue:YES forAncestors:ancestors];
     }
     for (XCElementSnapshot *ancestor in ancestors) {
-      if ([hitElement isEqualToElement:ancestor.accessibilityElement]) {
+      if ([hitElement fb_isEqualToElement:ancestor.accessibilityElement]) {
         return [self fb_cacheVisibilityWithValue:YES forAncestors:ancestors];
       }
     }
@@ -228,7 +197,7 @@ static NSMutableDictionary<NSNumber *, NSMutableDictionary<NSString *, NSNumber 
   if (self.children.count > 0) {
     if (nil != hitElement) {
       for (XCElementSnapshot *descendant in self._allDescendants) {
-        if ([hitElement isEqualToElement:descendant.accessibilityElement]) {
+        if ([hitElement fb_isEqualToElement:descendant.accessibilityElement]) {
           return [self fb_cacheVisibilityWithValue:YES forAncestors:descendant.fb_ancestors];
         }
       }

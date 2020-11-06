@@ -18,7 +18,8 @@
 
 - (BOOL)fb_isAccessibilityElement
 {
-  return (self.fb_snapshotWithAttributes ?: self.fb_lastSnapshot).fb_isAccessibilityElement;
+  return [self fb_snapshotWithAttributes:@[FB_XCAXAIsElementAttributeName]
+                                maxDepth:@1].fb_isAccessibilityElement;
 }
 
 @end
@@ -32,9 +33,7 @@
     return isAccessibilityElement.boolValue;
   }
   
-  NSString *attrName = [NSString stringWithCString:FB_XCAXAIsElementAttributeName
-                                          encoding:NSUTF8StringEncoding];
-  return [(NSNumber *)[self fb_attributeValue:attrName] boolValue];
+  return [(NSNumber *)[self fb_attributeValue:FB_XCAXAIsElementAttributeName] boolValue];
 }
 
 @end

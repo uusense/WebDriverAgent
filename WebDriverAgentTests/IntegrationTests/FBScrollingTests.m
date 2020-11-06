@@ -19,9 +19,6 @@
 #import "XCUIElement+FBClassChain.h"
 #import "FBXCodeCompatibility.h"
 
-#define FBCellElementWithLabel(label) ([self.testedApplication descendantsMatchingType:XCUIElementTypeAny][label])
-#define FBAssertVisibleCell(label) FBAssertWaitTillBecomesTrue(FBCellElementWithLabel(label).fb_isVisible)
-#define FBAssertInvisibleCell(label) FBAssertWaitTillBecomesTrue(!FBCellElementWithLabel(label).fb_isVisible)
 
 @interface FBScrollingTests : FBIntegrationTestCase
 @property (nonatomic, strong) XCUIElement *scrollView;
@@ -40,7 +37,6 @@
   [self launchApplication];
   [self goToScrollPageWithCells:YES];
   self.scrollView = [[self.testedApplication.query descendantsMatchingType:XCUIElementTypeAny] matchingIdentifier:@"scrollView"].element;
-  [self.scrollView fb_nativeResolve];
 }
 
 - (void)testCellVisibility
@@ -59,14 +55,7 @@
   FBAssertInvisibleCell(@"0");
   FBAssertInvisibleCell(@"10");
   XCTAssertTrue(self.testedApplication.staticTexts.count > 0);
-  // Scroll up might sometimes be unstable
-  // (it depends on Simulator window size and the actual machine perfomance)
-  for (int retry = 0; retry < 5; ++retry) {
-    [self.scrollView fb_scrollUpByNormalizedDistance:1.0];
-    if (FBCellElementWithLabel(@"0").fb_isVisible) {
-      break;
-    }
-  }
+  [self.scrollView fb_scrollUpByNormalizedDistance:1.0];
   FBAssertVisibleCell(@"0");
   FBAssertVisibleCell(@"10");
 }
@@ -102,8 +91,7 @@
   XCTAssertNil(error);
   XCTAssertTrue(element.fb_isVisible);
   [element tap];
-  [element fb_nativeResolve];
-  XCTAssertTrue(element.lastSnapshot.selected);
+  XCTAssertTrue(element.wdSelected);
 }
 
 @end

@@ -40,8 +40,11 @@
   [textField tap];
   XCTAssertTrue([textField fb_clearTextWithError:&error]);
   [textField pressForDuration:2.0];
-  XCUIElement *pasteItem = [[self.testedApplication descendantsMatchingType:XCUIElementTypeAny]
-                            matchingIdentifier:@"Paste"].fb_firstMatch;
+  XCUIElementQuery *pastItemsQuery = [[self.testedApplication descendantsMatchingType:XCUIElementTypeAny] matchingIdentifier:@"Paste"];
+  if (![pastItemsQuery.firstMatch waitForExistenceWithTimeout:2.0]) {
+    XCTFail(@"No matched element named 'Paste'");
+  }
+  XCUIElement *pasteItem = pastItemsQuery.fb_firstMatch;
   XCTAssertNotNil(pasteItem);
   [pasteItem tap];
   FBAssertWaitTillBecomesTrue([textField.value isEqualToString:text]);
@@ -52,16 +55,16 @@
   NSString *text = @"Happy copying";
   XCUIElement *textField = self.testedApplication.textFields[@"aIdentifier"];
   NSError *error;
-  XCTAssertTrue([textField fb_typeText:text error:&error]);
+  XCTAssertTrue([textField fb_typeText:text shouldClear:NO error:&error]);
   [textField pressForDuration:2.0];
   XCUIElement *selectAllItem = [[self.testedApplication descendantsMatchingType:XCUIElementTypeAny]
-                                matchingIdentifier:@"Select All"].fb_firstMatch;
-  XCTAssertNotNil(selectAllItem);
+                                matchingIdentifier:@"Select All"].firstMatch;
+  XCTAssertTrue([selectAllItem waitForExistenceWithTimeout:5]);
   [selectAllItem tap];
   [textField pressForDuration:2.0];
   XCUIElement *copyItem = [[self.testedApplication descendantsMatchingType:XCUIElementTypeAny]
-                           matchingIdentifier:@"Copy"].fb_firstMatch;
-  XCTAssertNotNil(copyItem);
+                           matchingIdentifier:@"Copy"].firstMatch;
+  XCTAssertTrue([copyItem waitForExistenceWithTimeout:5]);
   [copyItem tap];
   FBWaitExact(1.0);
   NSData *result = [FBPasteboard dataForType:@"plaintext" error:&error];

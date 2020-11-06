@@ -26,6 +26,7 @@
     self.wdVisible = YES;
     self.wdAccessible = YES;
     self.wdEnabled = YES;
+    self.wdSelected = YES;
 #if TARGET_OS_TV
     self.wdFocused = YES;
 #endif
@@ -48,14 +49,34 @@
   return @"test";
 }
 
+- (id)query
+{
+  return nil;
+}
+
 - (void)fb_nativeResolve
 {
   self.didResolve = YES;
 }
 
+- (id)fb_takeSnapshot
+{
+  return [self lastSnapshot];
+}
+
+- (NSString *)fb_cacheId
+{
+  return self.wdUID;
+}
+
 - (id)lastSnapshot
 {
   return self;
+}
+
+- (id)fb_uid
+{
+  return self.wdUID;
 }
 
 @end

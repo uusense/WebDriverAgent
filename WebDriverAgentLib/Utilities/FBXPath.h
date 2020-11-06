@@ -29,15 +29,6 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/**
- The exception happends if the provided XPath expession cannot be compiled because of a syntax error
- */
-extern NSString *const FBInvalidXPathException;
-/**
- The exception happends if any internal error is triggered during XPath matching procedure
- */
-extern NSString *const FBXPathQueryEvaluationException;
-
 @interface FBXPath : NSObject
 
 /**
@@ -48,16 +39,20 @@ extern NSString *const FBXPathQueryEvaluationException;
  @return an array of descendants matching the given xpath query or an empty array if no matches were found
  @throws NSException if there is an unexpected internal error during xml parsing
  */
-+ (NSArray<XCElementSnapshot *> *)matchesWithRootElement:(id<FBElement>)root forQuery:(NSString *)xpathQuery;
++ (NSArray<XCElementSnapshot *> *)matchesWithRootElement:(id<FBElement>)root
+                                                forQuery:(NSString *)xpathQuery;
 
 /**
  Gets XML representation of XCElementSnapshot with all its descendants. This method generates the same
  representation, which is used for XPath search
  
  @param root the root element
+ @param excludedAttributes the list of attribute names to exclude from the resulting document.
+ Passing nil means all the available attributes should be included
  @return valid XML document as string or nil in case of failure
  */
-+ (nullable NSString *)xmlStringWithRootElement:(id<FBElement>)root;
++ (nullable NSString *)xmlStringWithRootElement:(id<FBElement>)root
+                            excludingAttributes:(nullable NSArray<NSString *> *)excludedAttributes;
 
 + (nullable NSString *)uuXmlStringWithSnapshot:(XCElementSnapshot *)root;
 

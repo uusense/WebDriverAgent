@@ -7,8 +7,7 @@
 //
 
 #import "UUResponsePicPayload.h"
-
-#import <RoutingHTTPServer/RouteResponse.h>
+#import "RouteResponse.h"
 
 @interface UUResponsePicPayload ()
 

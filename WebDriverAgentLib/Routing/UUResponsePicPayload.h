@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 
 #import <WebDriverAgentLib/FBResponsePayload.h>
+#import <WebDriverAgentLib/FBHTTPStatusCodes.h>
 
 NS_ASSUME_NONNULL_BEGIN
 

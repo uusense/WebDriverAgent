@@ -11,6 +11,7 @@
 #import <SystemConfiguration/CaptiveNetwork.h>
 
 #import "UUElementCommands.h"
+#import "FBExceptions.h"
 
 #import "FBApplication.h"
 #import "FBKeyboard.h"
@@ -171,7 +172,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     counts += 1;
   }
   if (error) {
-    return FBResponseWithError(error);
+    return FBResponseWithUnknownError(error);
   }
   return FBResponseWithOK();
 }
@@ -195,7 +196,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     counts += 1;
   }
   if (error) {
-    return FBResponseWithError(error);
+    return FBResponseWithUnknownError(error);
   }
   return FBResponseWithOK();
 }
@@ -277,7 +278,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   NSTimeInterval duration = [request.arguments[@"duration"] doubleValue];
   CGFloat velocity        = [request.arguments[@"velocity"] floatValue];
   if (velocity <= 0) {
-    return FBResponseWithErrorFormat(@"Duration velocity is invalid. passing velocity is %f", velocity);
+    return FBResponseWithUnknownErrorFormat(@"Duration velocity is invalid. passing velocity is %f", velocity);
   }
   CGFloat deltaX            = endPoint.x - startPoint.x;
   CGFloat deltaY            = endPoint.y - startPoint.y;
@@ -353,9 +354,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uuHandleForceTouch:(FBRouteRequest *)request {
-  
-  XCUIApplication *app = FBApplication.fb_activeApplication;
-  CGPoint touchPoint    = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
+  CGPoint touchPoint = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
   double pressure = 1;
   double duration = 1;
   __block BOOL didSucceed;
@@ -378,26 +377,26 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   if (didSucceed) {
     return FBResponseWithOK();
   } else {
-    return FBResponseWithErrorFormat(@"Failed to force touch");
+    return FBResponseWithUnknownErrorFormat(@"Failed to force touch");
   }
 }
 
 + (id<FBResponsePayload>)handleGetWindowSize:(FBRouteRequest *)request {
   CGRect frame = request.session.activeApplication.wdFrame;
   CGSize screenSize = FBAdjustDimensionsForApplication(frame.size, request.session.activeApplication.interfaceOrientation);
-  return FBResponseWithStatus(FBCommandStatusNoError, @{
-                                                        @"width": @(screenSize.width),
-                                                        @"height": @(screenSize.height),
-                                                        });
+  return FBResponseWithObject(@{
+                                @"width": @(screenSize.width),
+                                @"height": @(screenSize.height),
+                                });
 }
 
 + (id<FBResponsePayload>)uuGetSSID:(FBRouteRequest *)request {
   NSString *ssid = nil;
   ssid = [UUElementCommands CurrentSSIDInfo];
   
-  return FBResponseWithStatus(FBCommandStatusNoError, @{
-                                                        @"ssid": ssid?:@"",
-                                                        });
+  return FBResponseWithObject(@{
+                                @"ssid": ssid?:@"",
+                                });
 }
 
 + (id<FBResponsePayload>)uuSource:(FBRouteRequest *)request {
@@ -410,13 +409,10 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   } else if ([sourceType caseInsensitiveCompare:@"json"] == NSOrderedSame) {
     result = application.fb_tree;
   } else {
-    return FBResponseWithStatus(
-                                FBCommandStatusUnsupported,
-                                [NSString stringWithFormat:@"Unknown source type '%@'. Only 'xml' and 'json' source types are supported.", sourceType]
-                                );
+    return FBResponseWithStatus([FBCommandStatus unsupportedOperationErrorWithMessage:[NSString stringWithFormat:@"Unknown source type '%@'. Only 'xml' and 'json' source types are supported.", sourceType] traceback:nil]);
   }
   if (nil == result) {
-    return FBResponseWithErrorFormat(@"Cannot get '%@' source of the current application", sourceType);
+    return FBResponseWithUnknownErrorFormat(@"Cannot get '%@' source of the current application", sourceType);
   }
   
   CFAbsoluteTime end = CFAbsoluteTimeGetCurrent();
@@ -430,7 +426,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     [[application.navigationBars.buttons elementBoundByIndex:0] tap];
     return FBResponseWithOK();
   }
-  return FBResponseWithErrorFormat(@"Cannot back of the current page");
+  return FBResponseWithUnknownErrorFormat(@"Cannot back of the current page");
   
 }
 
@@ -451,7 +447,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     }
     NSInteger monkeyIterations = [request.arguments[@"monkeyIterations"] integerValue];
     if ([UUMonkeySingleton sharedInstance].application == nil) {
-      return FBResponseWithErrorFormat(@"Cannot get the current application");
+      return FBResponseWithUnknownErrorFormat(@"Cannot get the current application");
     }
     if (nil == [UUMonkeySingleton sharedInstance].monkey) {
       UUMonkey *monkey = [[UUMonkey alloc] initWithFrame:application.frame];
@@ -467,7 +463,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 + (id<FBResponsePayload>)handleActiveTestingAppCommand:(FBRouteRequest *)request {
   XCUIApplication *application = [UUMonkeySingleton sharedInstance].application;
   if (application == nil) {
-    return FBResponseWithErrorFormat(@"Cannot get the current application");
+    return FBResponseWithUnknownErrorFormat(@"Cannot get the current application");
   }
   if (application.state != XCUIApplicationStateRunningForeground && application.state != XCUIApplicationStateNotRunning) {
     [[XCUIDevice sharedDevice] pressButton:XCUIDeviceButtonHome];
@@ -480,7 +476,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 + (id<FBResponsePayload>)handleWhetherCrashedCommand:(FBRouteRequest *)request {
   XCUIApplication *application = [UUMonkeySingleton sharedInstance].application;
   if (application == nil) {
-    return FBResponseWithErrorFormat(@"Cannot get the current application");
+    return FBResponseWithUnknownErrorFormat(@"Cannot get the current application");
   }
   if (application && !application.running) {
     [[NSException exceptionWithName:FBApplicationCrashedException reason:@"Application is not running, possibly crashed" userInfo:nil] raise];
@@ -491,15 +487,12 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 + (id<FBResponsePayload>)uu_handleGlobalInput:(FBRouteRequest *)request {
   NSString *text = request.arguments[@"text"];
   if (!text) {
-    return FBResponseWithStatus(
-                                FBCommandStatusInvalidArgument,
-                                [NSString stringWithFormat:@"%@ is not a valid TEXT", text]
-                                );
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:[NSString stringWithFormat:@"%@ is not a valid TEXT", text] traceback:nil]);
   }
   NSUInteger frequency = 60;
   NSError *error = nil;
   if (![FBKeyboard typeText:text frequency:frequency error:&error]) {
-    return FBResponseWithErrorFormat(@"Failed to input");
+    return FBResponseWithUnknownErrorFormat(@"Failed to input");
   }
     return FBResponseWithOK();
 }
@@ -507,7 +500,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 + (id<FBResponsePayload>)handleUnlock:(FBRouteRequest *)request {
   NSError *error;
   if (![[XCUIDevice sharedDevice] uu_unlockScreen:&error]) {
-    return FBResponseWithError(error);
+    return FBResponseWithUnknownError(error);
   }
   return FBResponseWithOK();
 }
@@ -520,7 +513,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   NSInteger timeout = (NSInteger)[(NSNumber *)request.arguments[@"timeout"] integerValue];
   
   if (count <= 0) {
-    return FBResponseWithErrorFormat(@"count is less than 1");
+    return FBResponseWithUnknownErrorFormat(@"count is less than 1");
   }
   
   size = size > 8 ? size : 64;
@@ -550,7 +543,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
   } while (count > 0);
 
-  return FBResponseWithStatus(FBCommandStatusNoError, results);
+  return FBResponseWithObject(results);
 }
 
 
@@ -570,7 +563,6 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
  @return translated gesture coordinates ready to be passed to XCUICoordinate methods
  */
 + (XCUICoordinate *)uuGestureCoordinateWithCoordinate:(CGPoint)coordinate application:(XCUIApplication *)application shouldApplyOrientationWorkaround:(BOOL)shouldApplyOrientationWorkaround {
-  
   CGPoint point = coordinate;
   if (shouldApplyOrientationWorkaround) {
     point = FBInvertPointForApplication(coordinate, application.frame.size, application.interfaceOrientation);

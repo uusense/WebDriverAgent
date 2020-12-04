@@ -299,7 +299,7 @@
       break;
     case ReachableViaWWAN: {
       CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
-      NSString *currentStatus = info.currentRadioAccessTechnology;
+      NSString *currentStatus = info.serviceCurrentRadioAccessTechnology;
       if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyGPRS"]) {
         netconnType = @"GPRS";
       }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyEdge"]) {

@@ -74,7 +74,8 @@ NSString *const FBDefaultApplicationAuto = @"auto";
 static FBSession *_activeSession = nil;
 + (instancetype)activeSession
 {
-  return _activeSession;
+  return _activeSession ?: [FBSession initWithApplication:nil];
+  //return _activeSession;
 }
 
 + (void)markSessionActive:(FBSession *)session

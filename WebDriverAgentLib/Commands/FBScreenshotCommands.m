@@ -10,6 +10,7 @@
 #import "FBScreenshotCommands.h"
 
 #import <objc/runtime.h>
+#import <MobileCoreServices/MobileCoreServices.h>
 
 #import "XCUIDevice+FBHelpers.h"
 #import "FBRoute.h"
@@ -18,6 +19,11 @@
 #import "FBMathUtils.h"
 #import "XCUIScreen.h"
 #import "DeviceInfoManager.h"
+#import "XCTestManager_ManagerInterface-Protocol.h"
+#import "FBXCTestDaemonsProxy.h"
+#import "FBLogger.h"
+
+static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
 
 @implementation FBScreenshotCommands
 
@@ -84,6 +90,31 @@
   NSError *error;
   CGRect rect = CGRectZero;
   NSString *version = [UIDevice currentDevice].systemVersion;
+  __block NSData *screenshotData = nil;
+  
+  if (version.doubleValue >= 14.1) {
+      rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
+      CGFloat screenshotCompressionQuality = 0.6;
+    
+      id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
+      dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+      [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]
+                                           withRect:rect
+                                                uti:(__bridge id)kUTTypeJPEG
+                                 compressionQuality:screenshotCompressionQuality
+                                          withReply:^(NSData *data, NSError *err) {
+          if (err != nil) {
+              [FBLogger logFmt:@"Error taking screenshot: %@", [error description]];
+          }
+          screenshotData = data;
+          dispatch_semaphore_signal(sem);
+      }];
+      dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
+      if (nil != screenshotData) {
+        return UUResponseWithJPG(screenshotData);
+      }
+  }
+  
   double scaled = [[DeviceInfoManager sharedManager] getScaleFactor];
   BOOL fullScreen = [request.arguments[@"full"] integerValue] == 1 ? YES : NO;
   if (!fullScreen) {
@@ -96,7 +127,7 @@
   }
   NSUInteger q = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
   NSString *type = request.arguments[@"type"];
-  NSData *screenshotData = nil;
+  screenshotData = nil;
   Class xcScreenClass = objc_lookUpClass("XCUIScreen");
   if (xcScreenClass == nil) {
     return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:@"Screen shot failed, XCUIScreen is nil" traceback:nil]);

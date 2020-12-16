@@ -101,6 +101,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     [[FBRoute POST:@"/uusense/globalInput"].withoutSession respondWithTarget:self action:@selector(uu_handleGlobalInput:)],
     
     [[FBRoute POST:@"/uusense/doubleMove"].withoutSession respondWithTarget:self action:@selector(uu_handleDoubleMove:)],
+    [[FBRoute POST:@"/uusense/move"].withoutSession respondWithTarget:self action:@selector(uu_handleMove:)],
     
     [[FBRoute GET:@"/uusense/lockButton"].withoutSession respondWithTarget:self action:@selector(uu_lockButton:)],
     [[FBRoute POST:@"/uusense/unlockWithOutCheck"].withoutSession respondWithTarget:self action:@selector(handleUnlock:)],
@@ -156,6 +157,47 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     [event addPointerEventPath:eventPath];
     [event addPointerEventPath:eventPath2];
     
+    [UUElementCommands uuSynthesizeEvent:event andHandle:handlerBlock];
+  }];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)uu_handleMove:(FBRouteRequest *)request {
+
+  NSArray *pointsArray    = request.arguments[@"points"];
+  NSTimeInterval duration = [request.arguments[@"duration"] doubleValue];
+//  CGFloat velocity        = [request.arguments[@"velocity"] floatValue];
+  double dragTime         = 0.2;
+  
+  if ((nil == pointsArray) || ([pointsArray count] <= 0)) {
+    return FBResponseWithUnknownErrorFormat(@"Points are null");
+  }
+
+  __block BOOL didSucceed;
+  [FBRunLoopSpinner spinUntilCompletion:^(void(^completion)(void)){
+    XCEventGeneratorHandler handlerBlock = ^(XCSynthesizedEventRecord *record, NSError *commandError) {
+      didSucceed = (commandError == nil);
+      completion();
+    };
+
+    NSDictionary *startPoint = pointsArray.firstObject;
+    CGPoint hitPoint = CGPointMake([startPoint[@"x"] intValue], [startPoint[@"y"] intValue]);
+    XCPointerEventPath *eventPath = [[XCPointerEventPath alloc] initForTouchAtPoint:hitPoint offset:duration];
+
+    for (NSUInteger i = 1; i < [pointsArray count]; i++) {
+//      NSDictionary * sPoint = pointsArray[i - 1];
+      NSDictionary * ePoint = pointsArray[i];
+//      CGFloat deltaX        = [ePoint[@"x"] intValue] - [sPoint[@"x"] intValue];
+//      CGFloat deltaY        = [ePoint[@"y"] intValue] - [sPoint[@"y"] intValue];
+//      double distance       = sqrt(deltaX*deltaX + deltaY*deltaY);
+//      double dragTime       = distance / velocity;
+      
+      CGPoint endPoint = CGPointMake([ePoint[@"x"] intValue], [ePoint[@"y"] intValue]);
+      [eventPath moveToPoint:endPoint atOffset:duration + (dragTime * i)];
+    }
+    [eventPath liftUpAtOffset:duration + (dragTime * [pointsArray count])];
+    XCSynthesizedEventRecord *event = [[XCSynthesizedEventRecord alloc] initWithName:@"move" interfaceOrientation:UIInterfaceOrientationPortrait];
+    [event addPointerEventPath:eventPath];
     [UUElementCommands uuSynthesizeEvent:event andHandle:handlerBlock];
   }];
   return FBResponseWithOK();

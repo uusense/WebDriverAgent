@@ -91,9 +91,18 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   CGRect rect = CGRectZero;
   NSString *version = [UIDevice currentDevice].systemVersion;
   __block NSData *screenshotData = nil;
+  BOOL fullScreen = [request.arguments[@"full"] integerValue] == 1 ? YES : NO;
+  NSUInteger q = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
+  NSString *type = request.arguments[@"type"];
   
   if (version.doubleValue >= 14.1) {
+    
       rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
+    
+      if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
+        rect = CGRectNull;
+      }
+      
       CGFloat screenshotCompressionQuality = 0.6;
     
       id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
@@ -116,17 +125,15 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   }
   
   double scaled = [[DeviceInfoManager sharedManager] getScaleFactor];
-  BOOL fullScreen = [request.arguments[@"full"] integerValue] == 1 ? YES : NO;
+  
   if (!fullScreen) {
     if (version.doubleValue >= 11.0) {
         rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
     } else {
         rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue] * scaled, (CGFloat)[request.arguments[@"y"] doubleValue] * scaled, (CGFloat)[request.arguments[@"width"] doubleValue] * scaled, (CGFloat)[request.arguments[@"height"] doubleValue] * scaled);
     }
-
   }
-  NSUInteger q = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
-  NSString *type = request.arguments[@"type"];
+
   screenshotData = nil;
   Class xcScreenClass = objc_lookUpClass("XCUIScreen");
   if (xcScreenClass == nil) {

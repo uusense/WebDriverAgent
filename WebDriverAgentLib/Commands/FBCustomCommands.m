@@ -291,12 +291,12 @@
   switch ([reach currentReachabilityStatus]) {
     case NotReachable: {
       netconnType = @"no network";
-    }
-      break;
+      }
+    break;
     case ReachableViaWiFi: {
       netconnType = @"Wifi";
-    }
-      break;
+      }
+    break;
     case ReachableViaWWAN: {
       CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
       NSString *currentStatus = info.currentRadioAccessTechnology;
@@ -322,8 +322,14 @@
         netconnType = @"HRPD";
       }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyLTE"]){
         netconnType = @"4G";
+      }else if (@available(iOS 14.0, *)) {
+          if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyNRNSA"]){
+              netconnType = @"5G NSA";
+          } else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyNR"]){
+              netconnType = @"5G";
+          }
+        }
       }
-    }
       break;
     default:
       break;

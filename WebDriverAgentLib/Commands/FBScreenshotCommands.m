@@ -95,7 +95,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   NSUInteger q = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
   NSString *type = request.arguments[@"type"];
   
-  if (version.doubleValue >= 14.1) {
+  if (version.doubleValue >= 13.7) {
     
       rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
     

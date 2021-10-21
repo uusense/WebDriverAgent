@@ -94,9 +94,10 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   BOOL fullScreen = [request.arguments[@"full"] integerValue] == 1 ? YES : NO;
   NSUInteger q = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
   NSString *type = request.arguments[@"type"];
-  
-  if (version.doubleValue >= 13.7) {
-    
+  Class xcScreenClass = objc_lookUpClass("XCUIScreen");
+  XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
+ // if (version.doubleValue >= 13.7) {
+  if (![mainScreen respondsToSelector: @selector(screenshotDataForQuality:rect:error:)]) {
       rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
     
       if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
@@ -135,7 +136,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   }
 
   screenshotData = nil;
-  Class xcScreenClass = objc_lookUpClass("XCUIScreen");
+  //Class xcScreenClass = objc_lookUpClass("XCUIScreen");
   if (xcScreenClass == nil) {
     return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:@"Screen shot failed, XCUIScreen is nil" traceback:nil]);
   }
@@ -157,7 +158,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   if (0 < q && q < 3) {
     quality = q;
   }
-  XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
+  //XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
   if ([type isEqualToString:@"PNG"]) {
     screenshotData = [[mainScreen screenshot] PNGRepresentation];
   } else {

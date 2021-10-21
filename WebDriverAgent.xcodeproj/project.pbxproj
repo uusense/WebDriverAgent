@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 51;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -42,8 +42,6 @@
 		315A15012518CB8700A3A064 /* TouchableView.m in Sources */ = {isa = PBXBuildFile; fileRef = 315A15002518CB8700A3A064 /* TouchableView.m */; };
 		315A15072518CC2800A3A064 /* TouchSpotView.m in Sources */ = {isa = PBXBuildFile; fileRef = 315A15062518CC2800A3A064 /* TouchSpotView.m */; };
 		315A150A2518D6F400A3A064 /* TouchViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 315A15092518D6F400A3A064 /* TouchViewController.m */; };
-		37835BFC263AA614004673ED /* BonreeAppVpn.framework in Copy frameworks */ = {isa = PBXBuildFile; fileRef = 37835BFB263AA614004673ED /* BonreeAppVpn.framework */; platformFilter = ios; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		37835C04263AA645004673ED /* BonreeAppVpn.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 37835BFB263AA614004673ED /* BonreeAppVpn.framework */; platformFilter = ios; };
 		6385F4A7220A40760095BBDB /* XCUIApplicationProcessDelay.m in Sources */ = {isa = PBXBuildFile; fileRef = 6385F4A5220A40760095BBDB /* XCUIApplicationProcessDelay.m */; };
 		63CCF91221ECE4C700E94ABD /* FBImageIOScaler.h in Headers */ = {isa = PBXBuildFile; fileRef = 63CCF91021ECE4C700E94ABD /* FBImageIOScaler.h */; };
 		63CCF91321ECE4C700E94ABD /* FBImageIOScaler.m in Sources */ = {isa = PBXBuildFile; fileRef = 63CCF91121ECE4C700E94ABD /* FBImageIOScaler.m */; };
@@ -929,7 +927,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				37835BFC263AA614004673ED /* BonreeAppVpn.framework in Copy frameworks */,
 				AD35D06C1CF1C35500870A75 /* WebDriverAgentLib.framework in Copy frameworks */,
 			);
 			name = "Copy frameworks";
@@ -974,7 +971,6 @@
 		315A15062518CC2800A3A064 /* TouchSpotView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TouchSpotView.m; sourceTree = "<group>"; };
 		315A15082518D6F400A3A064 /* TouchViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TouchViewController.h; sourceTree = "<group>"; };
 		315A15092518D6F400A3A064 /* TouchViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TouchViewController.m; sourceTree = "<group>"; };
-		37835BFB263AA614004673ED /* BonreeAppVpn.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = BonreeAppVpn.framework; sourceTree = "<group>"; };
 		44757A831D42CE8300ECF35E /* XCUIDeviceRotationTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = XCUIDeviceRotationTests.m; sourceTree = "<group>"; };
 		631B523421F6174300625362 /* FBImageIOScalerTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FBImageIOScalerTests.m; sourceTree = "<group>"; };
 		633E904A220DEE7F007CADF9 /* XCUIApplicationProcessDelay.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XCUIApplicationProcessDelay.h; sourceTree = "<group>"; };
@@ -1512,7 +1508,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				37835C04263AA645004673ED /* BonreeAppVpn.framework in Frameworks */,
 				EE158B5A1CBD462100A3E3F0 /* WebDriverAgentLib.framework in Frameworks */,
 				716C9346224D540C004B8542 /* libxml2.tbd in Frameworks */,
 			);
@@ -1667,7 +1662,6 @@
 		91F9DAE01B99DBC2001349B2 = {
 			isa = PBXGroup;
 			children = (
-				37835BFB263AA614004673ED /* BonreeAppVpn.framework */,
 				EEE5CABE1C80361500CBBDD9 /* Configurations */,
 				91F9DB731B99DDD8001349B2 /* PrivateHeaders */,
 				498495C81BB2E6FA009CC848 /* Resources */,

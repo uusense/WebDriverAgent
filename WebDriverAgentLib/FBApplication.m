@@ -149,7 +149,7 @@ static const NSTimeInterval APP_STATE_CHANGE_TIMEOUT = 5.0;
   if ([FBXCAXClientProxy.sharedClient hasProcessTracker]) {
     return (FBApplication *)[FBXCAXClientProxy.sharedClient monitoredApplicationWithProcessIdentifier:processID];
   }
-  return  [super applicationWithPID:processID];
+  return [super applicationWithPID:processID];
 }
 
 - (void)launch
@@ -166,6 +166,30 @@ static const NSTimeInterval APP_STATE_CHANGE_TIMEOUT = 5.0;
   if (![self waitForState:XCUIApplicationStateNotRunning timeout:APP_STATE_CHANGE_TIMEOUT]) {
     [FBLogger logFmt:@"The active application is still '%@' after %.2f seconds timeout", self.bundleID, APP_STATE_CHANGE_TIMEOUT];
   }
+}
+
++ (BOOL)fb_switchToSystemApplicationWithError:(NSError **)error
+{
+  FBApplication *systemApp = self.fb_systemApplication;
+  @try {
+    if ([systemApp fb_state] < 2) {
+      [systemApp launch];
+    } else {
+      [systemApp fb_activate];
+    }
+  } @catch (NSException *e) {
+    return [[[FBErrorBuilder alloc]
+             withDescription:nil == e ? @"Cannot open the home screen" : e.reason]
+            buildError:error];
+  }
+  return [[[[FBRunLoopSpinner new]
+            timeout:5]
+           timeoutErrorMessage:@"Timeout waiting until the home screen is visible"]
+          spinUntilTrue:^BOOL{
+    FBApplication *activeApp = self.fb_activeApplication;
+    return nil != activeApp && [activeApp.bundleID isEqualToString:systemApp.bundleID];
+  }
+          error:error];
 }
 
 @end

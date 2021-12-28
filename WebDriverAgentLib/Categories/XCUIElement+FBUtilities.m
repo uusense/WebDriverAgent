@@ -19,23 +19,23 @@
 #import "FBMathUtils.h"
 #import "FBRunLoopSpinner.h"
 #import "FBSettings.h"
+#import "FBScreenshot.h"
 #import "FBXCAXClientProxy.h"
 #import "FBXCodeCompatibility.h"
-#import "FBXCTestDaemonsProxy.h"
 #import "XCUIApplication.h"
 #import "XCUIApplication+FBQuiescence.h"
 #import "XCUIApplicationImpl.h"
 #import "XCUIApplicationProcess.h"
 #import "XCTElementSetTransformer-Protocol.h"
-#import "XCTestManager_ManagerInterface-Protocol.h"
 #import "XCTestPrivateSymbols.h"
 #import "XCTRunnerDaemonSession.h"
 #import "XCUIElement+FBCaching.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
 #import "XCUIElementQuery.h"
 #import "XCUIElementQuery+FBHelpers.h"
-#import "XCUIScreen.h"
 #import "XCUIElement+FBUID.h"
+#import "XCUIScreen.h"
+#import "XCUIElement+FBResolve.h"
 
 #define DEFAULT_AX_TIMEOUT 60.
 
@@ -114,7 +114,7 @@
   if (nil == snapshotWithAttributes) {
     [FBLogger logFmt:@"Cannot take a snapshot with attribute(s) %@ of '%@' after %.2f seconds",
      attributeNames, snapshot.fb_description, axTimeout];
-    [FBLogger logFmt:@"This timeout could be customized via '%@' setting", CUSTOM_SNAPSHOT_TIMEOUT];
+    [FBLogger logFmt:@"This timeout could be customized via '%@' setting", FB_SETTING_CUSTOM_SNAPSHOT_TIMEOUT];
     [FBLogger logFmt:@"Internal error: %@", error.localizedDescription];
     [FBLogger logFmt:@"Falling back to the default snapshotting mechanism for the element '%@' (some attribute values, like visibility or accessibility might not be precise though)", snapshot.fb_description];
     snapshotWithAttributes = self.lastSnapshot;
@@ -160,6 +160,7 @@
   query = [query matchingPredicate:[NSPredicate predicateWithFormat:@"%K IN %@", FBStringify(XCUIElement, wdUID), sortedIds]];
   if (1 == snapshots.count) {
     XCUIElement *result = query.fb_firstMatch;
+    result.fb_isResolvedNatively = @NO;
     return result ? @[result] : @[];
   }
   // Rely here on the fact, that XPath always returns query results in the same
@@ -177,7 +178,11 @@
   //    }
   //    return NSOrderedSame;
   //  }];
-  return query.fb_allMatches;
+  NSArray<XCUIElement *> *result = query.fb_allMatches;
+  for (XCUIElement *el in result) {
+    el.fb_isResolvedNatively = @NO;
+  }
+  return result;
 }
 
 - (void)fb_waitUntilStable
@@ -187,15 +192,18 @@
 
 - (void)fb_waitUntilStableWithTimeout:(NSTimeInterval)timeout
 {
+  if (timeout < DBL_EPSILON) {
+    return;
+  }
+
   NSTimeInterval previousTimeout = FBConfiguration.waitForIdleTimeout;
   BOOL previousQuiescence = self.application.fb_shouldWaitForQuiescence;
-
   FBConfiguration.waitForIdleTimeout = timeout;
   if (!previousQuiescence) {
     self.application.fb_shouldWaitForQuiescence = YES;
   }
-  [[[self.application applicationImpl] currentProcess] waitForQuiescenceIncludingAnimationsIdle:YES];
-
+  [[[self.application applicationImpl] currentProcess]
+   waitForQuiescenceIncludingAnimationsIdle:YES];
   if (previousQuiescence != self.application.fb_shouldWaitForQuiescence) {
     self.application.fb_shouldWaitForQuiescence = previousQuiescence;
   }
@@ -240,17 +248,15 @@
     }
   }
 #endif
-  NSData *imageData = [XCUIScreen.mainScreen screenshotDataForQuality:FBConfiguration.screenshotQuality
-                                                                 rect:elementRect
-                                                                error:error];
-#if !TARGET_OS_TV
-  if (nil == imageData) {
-    return nil;
-  }
-  return FBAdjustScreenshotOrientationForApplication(imageData, orientation);
-#else
-  return imageData;
-#endif
+
+  // adjust element rect for the actual screen scale
+  XCUIScreen *mainScreen = XCUIScreen.mainScreen;
+  elementRect = CGRectMake(elementRect.origin.x * mainScreen.scale, elementRect.origin.y * mainScreen.scale,
+                           elementRect.size.width * mainScreen.scale, elementRect.size.height * mainScreen.scale);
+
+  return [FBScreenshot takeInOriginalResolutionWithQuality:FBConfiguration.screenshotQuality
+                                                      rect:elementRect
+                                                     error:error];
 }
 
 @end

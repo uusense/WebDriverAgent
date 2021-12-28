@@ -30,6 +30,10 @@ extern NSString *const FBSnapshotMaxDepthKey;
 + (void)setShouldUseCompactResponses:(BOOL)value;
 + (BOOL)shouldUseCompactResponses;
 
+/*! If set to YES (which is the default), the app will be terminated at the end of the session, if a bundleId was specified */
++ (void)setShouldTerminateApp:(BOOL)value;
++ (BOOL)shouldTerminateApp;
+
 /*! If shouldUseCompactResponses == NO, is the comma-separated list of fields to return with each element. Defaults to "type,label". */
 + (void)setElementResponseAttributes:(NSString *)value;
 + (NSString *)elementResponseAttributes;
@@ -37,11 +41,17 @@ extern NSString *const FBSnapshotMaxDepthKey;
 /*! Disables remote query evaluation making Xcode 9.x tests behave same as Xcode 8.x test */
 + (void)disableRemoteQueryEvaluation;
 
+/*! Enables the extended XCTest debug logging. Useful for developemnt purposes */
++ (void)enableXcTestDebugLogs;
+
 /*! Disables attribute key path analysis, which will cause XCTest on Xcode 9.x to ignore some elements */
 + (void)disableAttributeKeyPathAnalysis;
 
-/*! Disables XCTest from automated screenshots taking */
+/*! Disables XCTest automated screenshots taking */
 + (void)disableScreenshots;
+
+/*! Enables XCTest automated screenshots taking */
++ (void)enableScreenshots;
 
 /* The maximum typing frequency for all typing activities */
 + (void)setMaxTypingFrequency:(NSUInteger)value;
@@ -109,10 +119,20 @@ extern NSString *const FBSnapshotMaxDepthKey;
 + (BOOL)verboseLoggingEnabled;
 
 /**
+ Disables automatic handling of XCTest UI interruptions.
+ */
++ (void)disableApplicationUIInterruptionsHandling;
+
+/**
  * Configure keyboards preference to make test running stable
  */
 + (void)configureDefaultKeyboardPreferences;
 
+
+/**
+ * Turn on softwar keyboard forcefully for simulator.
+ */
++ (void)forceSimulatorSoftwareKeyboardPresence;
 
 /**
 Defines keyboard preference enabled status

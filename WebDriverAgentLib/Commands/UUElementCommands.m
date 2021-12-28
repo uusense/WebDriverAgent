@@ -287,7 +287,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uuHandleDoubleTapCoordinate:(FBRouteRequest *)request {
-  XCUIApplication *application        = request.session.uu_application;
+  XCUIApplication *application        = request.session.activeApplication;
   CGPoint doubleTapPoint              = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
   XCUICoordinate *doubleTapCoordinate = [self.class uuGestureCoordinateWithCoordinate:doubleTapPoint application:application shouldApplyOrientationWorkaround:YES];
   [doubleTapCoordinate doubleTap];

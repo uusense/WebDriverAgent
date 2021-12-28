@@ -16,8 +16,8 @@
 #import "FBConfiguration.h"
 #import "FBMacros.h"
 #import "FBProtocolHelpers.h"
-
 #import "XCUIElementQuery.h"
+#import "XCUIElement+FBResolve.h"
 #import "XCUIElement+FBUtilities.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
 
@@ -47,15 +47,21 @@ id<FBResponsePayload> FBResponseWithObject(id object)
 
 id<FBResponsePayload> FBResponseWithCachedElement(XCUIElement *element, FBElementCache *elementCache, BOOL compact)
 {
-  [elementCache storeElement:element];
+  BOOL useNativeCachingStrategy = nil == FBSession.activeSession
+    ? YES
+    : FBSession.activeSession.useNativeCachingStrategy;
+  [elementCache storeElement:(useNativeCachingStrategy ? element : element.fb_stableInstance)];
   return FBResponseWithStatus([FBCommandStatus okWithValue: FBDictionaryResponseWithElement(element, compact)]);
 }
 
 id<FBResponsePayload> FBResponseWithCachedElements(NSArray<XCUIElement *> *elements, FBElementCache *elementCache, BOOL compact)
 {
   NSMutableArray *elementsResponse = [NSMutableArray array];
+  BOOL useNativeCachingStrategy = nil == FBSession.activeSession
+    ? YES
+    : FBSession.activeSession.useNativeCachingStrategy;
   for (XCUIElement *element in elements) {
-    [elementCache storeElement:element];
+    [elementCache storeElement:(useNativeCachingStrategy ? element : element.fb_stableInstance)];
     [elementsResponse addObject:FBDictionaryResponseWithElement(element, compact)];
   }
   return FBResponseWithStatus([FBCommandStatus okWithValue:elementsResponse]);
@@ -113,7 +119,7 @@ inline NSDictionary *FBDictionaryResponseWithElement(XCUIElement *element, BOOL 
       } else if ([field isEqualToString:@"text"]) {
         dictionary[field] = FBFirstNonEmptyValue(snapshot.wdValue, snapshot.wdLabel) ?: [NSNull null];
       } else if ([field isEqualToString:@"rect"]) {
-        dictionary[field] = FBwdRectNoInf(snapshot.wdRect);
+        dictionary[field] = snapshot.wdRect;
       } else if ([field isEqualToString:@"enabled"]) {
         dictionary[field] = @(snapshot.wdEnabled);
       } else if ([field isEqualToString:@"displayed"]) {

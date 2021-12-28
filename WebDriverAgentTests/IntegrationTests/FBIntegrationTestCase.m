@@ -10,7 +10,7 @@
 #import <XCTest/XCTest.h>
 
 #import "FBAlert.h"
-#import "FBSpringboardApplication.h"
+#import "FBApplication.h"
 #import "FBTestMacros.h"
 #import "FBIntegrationTestCase.h"
 #import "FBConfiguration.h"
@@ -30,22 +30,22 @@ NSString *const FBTapsCountLabelIdentifier = @"numberOfTapsLabel";
 
 @interface FBIntegrationTestCase ()
 @property (nonatomic, strong) XCUIApplication *testedApplication;
-@property (nonatomic, strong) FBSpringboardApplication *springboard;
+@property (nonatomic, strong) FBApplication *springboard;
 @end
 
 @implementation FBIntegrationTestCase
 
 - (void)setUp
 {
+  // Enable it to get extended XCTest logs printed into the console
+  // [FBConfiguration enableXcTestDebugLogs];
   [super setUp];
   [FBConfiguration disableRemoteQueryEvaluation];
   [FBConfiguration disableAttributeKeyPathAnalysis];
   [FBConfiguration configureDefaultKeyboardPreferences];
   [FBConfiguration disableScreenshots];
-  // Enable it to get extended XCTest logs
-  // ((XCTestConfiguration *)XCTestConfiguration.activeTestConfiguration).emitOSLogs = YES;
   self.continueAfterFailure = NO;
-  self.springboard = [FBSpringboardApplication fb_springboard];
+  self.springboard = FBApplication.fb_systemApplication;
   self.testedApplication = [XCUIApplication new];
 }
 
@@ -90,10 +90,10 @@ NSString *const FBTapsCountLabelIdentifier = @"numberOfTapsLabel";
 {
   [[XCUIDevice sharedDevice] pressButton:XCUIDeviceButtonHome];
   [self.testedApplication fb_waitUntilStable];
-  FBAssertWaitTillBecomesTrue([FBSpringboardApplication fb_springboard].icons[@"Safari"].exists);
+  FBAssertWaitTillBecomesTrue(FBApplication.fb_systemApplication.icons[@"Safari"].exists);
   [[XCUIDevice sharedDevice] pressButton:XCUIDeviceButtonHome];
   [self.testedApplication fb_waitUntilStable];
-  FBAssertWaitTillBecomesTrue([FBSpringboardApplication fb_springboard].icons[@"Calendar"].fb_isVisible);
+  FBAssertWaitTillBecomesTrue(FBApplication.fb_systemApplication.icons[@"Calendar"].fb_isVisible);
 }
 
 - (void)goToSpringBoardExtras

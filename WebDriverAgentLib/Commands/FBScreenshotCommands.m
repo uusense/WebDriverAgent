@@ -22,6 +22,9 @@
 #import "XCTestManager_ManagerInterface-Protocol.h"
 #import "FBXCTestDaemonsProxy.h"
 #import "FBLogger.h"
+#import "FBScreenshot.h"
+#import "FBMacros.h"
+#import "FBImageIOScaler.h"
 
 static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
 
@@ -38,7 +41,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
     [[FBRoute GET:@"/uusense/screenshot"].withoutSession respondWithTarget:self action:@selector(uu_handleGetScreenshot:)],
     [[FBRoute GET:@"/uusense/screenshot"] respondWithTarget:self action:@selector(uu_handleGetScreenshot:)],
     [[FBRoute POST:@"/uusense/screenshot"].withoutSession respondWithTarget:self action:@selector(uu_handleASScreenshot:)],
-    [[FBRoute POST:@"/uusense/screenshot2"].withoutSession respondWithTarget:self action:@selector(uu_handlePostScreenshot:)],
+    //[[FBRoute POST:@"/uusense/screenshot2"].withoutSession respondWithTarget:self action:@selector(uu_handlePostScreenshot:)],
   ];
 }
 
@@ -48,8 +51,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
 + (id<FBResponsePayload>)handleGetScreenshot:(FBRouteRequest *)request
 {
   NSError *error;
-  //NSData *screenshotData = [[XCUIDevice sharedDevice] fb_screenshotWithError:&error];
-  NSData *screenshotData = [[XCUIDevice sharedDevice] uu_screenshotWithError:&error];
+  NSData *screenshotData = [[XCUIDevice sharedDevice] fb_screenshotWithError:&error];
   if (nil == screenshotData) {
     return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
   }
@@ -60,7 +62,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
 + (id<FBResponsePayload>)uu_handleGetScreenshot:(FBRouteRequest *)request
 {
   NSError *error;
-  NSData *screenshotData = [[XCUIDevice sharedDevice] uu_screenshotWithError:&error];
+  NSData *screenshotData = [[XCUIDevice sharedDevice] fb_screenshotWithError:&error];
   if (nil == screenshotData) {
     return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
   }
@@ -69,20 +71,6 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   } else {
     return UUResponseWithJPG(screenshotData);
   }
-}
-
-+ (id<FBResponsePayload>)uu_handlePostScreenshot:(FBRouteRequest *)request
-{
-  NSError *error;
-  CGRect rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
-  
-  NSUInteger quality = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
-  NSData *screenshotData = [[XCUIDevice sharedDevice] uu_screenshotWithSize:rect andQuality:quality andError:&error];
-  if (nil == screenshotData) {
-    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
-  }
-  NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
-  return FBResponseWithObject(screenshot);
 }
 
 + (id<FBResponsePayload>)uu_handleASScreenshot:(FBRouteRequest *)request
@@ -96,16 +84,46 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   NSString *type = request.arguments[@"type"];
   Class xcScreenClass = objc_lookUpClass("XCUIScreen");
   XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
- // if (version.doubleValue >= 13.7) {
-  if (![mainScreen respondsToSelector: @selector(screenshotDataForQuality:rect:error:)]) {
-      rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
-    
-      if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
-        rect = CGRectNull;
+  
+  rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
+
+  if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
+    rect = CGRectNull;
+  }
+  
+  if ([FBScreenshot isNewScreenshotAPISupported]) {
+    id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
+    __block NSError *innerError = nil;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"15.0")) {
+      id screnshotRequest = [FBScreenshot screenshotRequestWithScreenID:[XCUIScreen.mainScreen displayID]
+                                                                 rect:rect
+                                                                  uti:(__bridge id)kUTTypeJPEG
+                                                   compressionQuality:FBMaxCompressionQuality
+                                                                error:&error];
+      if (nil == screnshotRequest) {
+        return nil;
       }
-      
+      [proxy _XCT_requestScreenshot:screnshotRequest
+                          withReply:^(id image, NSError *err) {
+        if (nil != err) {
+          innerError = err;
+        } else {
+          screenshotData = [image data];
+        }
+        dispatch_semaphore_signal(sem);
+      }];
+      dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
+      if (nil == screenshotData) {
+        return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:@"Screen shot failed" traceback:nil]);
+      } else {
+        return UUResponseWithJPG(screenshotData);
+      }
+    }
+  }
+  
+  if (![mainScreen respondsToSelector: @selector(screenshotDataForQuality:rect:error:)]) {
       CGFloat screenshotCompressionQuality = 0.6;
-    
       id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
       dispatch_semaphore_t sem = dispatch_semaphore_create(0);
       [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]

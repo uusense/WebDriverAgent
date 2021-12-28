@@ -9,13 +9,15 @@
 
 #import "FBConfiguration.h"
 
+#include <dlfcn.h>
 #import <UIKit/UIKit.h>
 
 #include "TargetConditionals.h"
 #import "FBXCodeCompatibility.h"
 #import "XCTestPrivateSymbols.h"
 #import "XCElementSnapshot.h"
-#include <dlfcn.h>
+#import "XCTestConfiguration.h"
+#import "XCUIApplication+FBUIInterruptions.h"
 
 static NSUInteger const DefaultStartingPort = 8100;
 static NSUInteger const DefaultMjpegServerPort = 9100;
@@ -30,6 +32,7 @@ static NSString *const axSettingsClassName = @"AXSettings";
 static BOOL FBShouldUseTestManagerForVisibilityDetection = NO;
 static BOOL FBShouldUseSingletonTestManager = YES;
 static BOOL FBShouldUseCompactResponses = YES;
+static BOOL FBShouldTerminateApp = YES;
 static NSString *FBElementResponseAttributes = @"type,label";
 static NSUInteger FBMaxTypingFrequency = 60;
 static NSUInteger FBMjpegServerScreenshotQuality = 25;
@@ -72,6 +75,17 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
   [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"XCTDisableRemoteQueryEvaluation"];
 }
 
++ (void)disableApplicationUIInterruptionsHandling
+{
+  [XCUIApplication fb_disableUIInterruptionsHandling];
+}
+
++ (void)enableXcTestDebugLogs
+{
+  ((XCTestConfiguration *)XCTestConfiguration.activeTestConfiguration).emitOSLogs = YES;
+  [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"XCTEmitOSLogs"];
+}
+
 + (void)disableAttributeKeyPathAnalysis
 {
   [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"XCTDisableAttributeKeyPathAnalysis"];
@@ -80,6 +94,11 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
 + (void)disableScreenshots
 {
   [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"DisableScreenshots"];
+}
+
++ (void)enableScreenshots
+{
+  [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"DisableScreenshots"];
 }
 
 + (NSRange)bindingPortRange
@@ -144,6 +163,16 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
 + (BOOL)shouldUseCompactResponses
 {
   return FBShouldUseCompactResponses;
+}
+
++ (void)setShouldTerminateApp:(BOOL)value
+{
+  FBShouldTerminateApp = value;
+}
+
++ (BOOL)shouldTerminateApp
+{
+  return FBShouldTerminateApp;
 }
 
 + (void)setElementResponseAttributes:(NSString *)value
@@ -229,14 +258,6 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
 // Works for Simulator and Real devices
 + (void)configureDefaultKeyboardPreferences
 {
-#if TARGET_OS_SIMULATOR
-  // Force toggle software keyboard on.
-  // This can avoid 'Keyboard is not present' error which can happen
-  // when send_keys are called by client
-  [[UIKeyboardImpl sharedInstance] setAutomaticMinimizationEnabled:NO];
-  [[UIKeyboardImpl sharedInstance] setSoftwareKeyboardShownByTouch:YES];
-#endif
-
   void *handle = dlopen(controllerPrefBundlePath, RTLD_LAZY);
 
   Class controllerClass = NSClassFromString(controllerClassName);
@@ -271,6 +292,22 @@ static UIInterfaceOrientation FBScreenshotOrientation = UIInterfaceOrientationUn
   }
 
   dlclose(handle);
+}
+
++ (void)forceSimulatorSoftwareKeyboardPresence
+{
+#if TARGET_OS_SIMULATOR
+  // Force toggle software keyboard on.
+  // This can avoid 'Keyboard is not present' error which can happen
+  // when send_keys are called by client
+  [[UIKeyboardImpl sharedInstance] setAutomaticMinimizationEnabled:NO];
+
+  if ([(NSObject *)[UIKeyboardImpl sharedInstance]
+       respondsToSelector:@selector(setSoftwareKeyboardShownByTouch:)]) {
+    // Xcode 13 no longer has this method
+    [[UIKeyboardImpl sharedInstance] setSoftwareKeyboardShownByTouch:YES];
+  }
+#endif
 }
 
 + (FBConfigurationKeyboardPreference)keyboardAutocorrection

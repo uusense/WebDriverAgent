@@ -9,9 +9,9 @@
 
 #import "XCUIApplication+FBHelpers.h"
 
-#import "FBSpringboardApplication.h"
 #import "XCElementSnapshot.h"
 #import "FBElementTypeTransformer.h"
+#import "FBKeyboard.h"
 #import "FBLogger.h"
 #import "FBMacros.h"
 #import "FBMathUtils.h"
@@ -20,6 +20,7 @@
 #import "FBXPath.h"
 #import "FBXCTestDaemonsProxy.h"
 #import "FBXCAXClientProxy.h"
+#import "FBXMLGenerationOptions.h"
 #import "XCAccessibilityElement.h"
 #import "XCElementSnapshot+FBHelpers.h"
 #import "XCUIDevice+FBHelpers.h"
@@ -121,13 +122,11 @@ static NSString* const FBUnknownBundleId = @"unknown";
   info[@"name"] = FBValueOrNull(snapshot.wdName);
   info[@"value"] = FBValueOrNull(snapshot.wdValue);
   info[@"label"] = FBValueOrNull(snapshot.wdLabel);
-  // It is mandatory to replace all Infinity values with zeroes to avoid JSON parsing
-  // exceptions like https://github.com/facebook/WebDriverAgent/issues/639#issuecomment-314421206
-  // caused by broken element dimensions returned by XCTest
-  info[@"rect"] = FBwdRectNoInf(snapshot.wdRect);
+  info[@"rect"] = snapshot.wdRect;
   info[@"frame"] = NSStringFromCGRect(snapshot.wdFrame);
   info[@"isEnabled"] = [@([snapshot isWDEnabled]) stringValue];
   info[@"isVisible"] = [@([snapshot isWDVisible]) stringValue];
+  info[@"isAccessible"] = [@([snapshot isWDAccessible]) stringValue];
 #if TARGET_OS_TV
   info[@"isFocused"] = [@([snapshot isWDFocused]) stringValue];
 #endif
@@ -182,15 +181,12 @@ static NSString* const FBUnknownBundleId = @"unknown";
 
 - (NSString *)fb_xmlRepresentation
 {
-  return [FBXPath xmlStringWithRootElement:self excludingAttributes:nil];
+  return [self fb_xmlRepresentationWithOptions:nil];
 }
 
-- (NSString *)fb_xmlRepresentationWithoutAttributes:(NSArray<NSString *> *)excludedAttributes
+- (NSString *)fb_xmlRepresentationWithOptions:(FBXMLGenerationOptions *)options
 {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
-  return [FBXPath xmlStringWithRootElement:self excludingAttributes:excludedAttributes];
-#pragma clang diagnostic pop
+  return [FBXPath xmlStringWithRootElement:self options:options];
 }
 
 - (NSString *)fb_descriptionRepresentation
@@ -221,22 +217,6 @@ static NSString* const FBUnknownBundleId = @"unknown";
 }
 #endif
 
-+ (NSInteger)fb_testmanagerdVersion
-{
-  static dispatch_once_t getTestmanagerdVersion;
-  static NSInteger testmanagerdVersion;
-  dispatch_once(&getTestmanagerdVersion, ^{
-    id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    [proxy _XCT_exchangeProtocolVersion:testmanagerdVersion reply:^(unsigned long long code) {
-      testmanagerdVersion = (NSInteger) code;
-      dispatch_semaphore_signal(sem);
-    }];
-    dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)));
-  });
-  return testmanagerdVersion;
-}
-
 - (BOOL)fb_resetAuthorizationStatusForResource:(long long)resourceId error:(NSError **)error
 {
   SEL selector = NSSelectorFromString(@"resetAuthorizationStatusForResource:");
@@ -251,6 +231,72 @@ static NSString* const FBUnknownBundleId = @"unknown";
   [invocation setArgument:&resourceId atIndex:2]; // 0 and 1 are reserved
   [invocation invokeWithTarget:self];
   return YES;
+}
+
+- (BOOL)fb_dismissKeyboardWithKeyNames:(nullable NSArray<NSString *> *)keyNames
+                                 error:(NSError **)error
+{
+  BOOL (^isKeyboardInvisible)(void) = ^BOOL(void) {
+    return ![FBKeyboard waitUntilVisibleForApplication:self
+                                               timeout:0
+                                                 error:nil];
+  };
+
+  if (isKeyboardInvisible()) {
+    // Short circuit if the keyboard is not visible
+    return YES;
+  }
+
+#if TARGET_OS_TV
+  [[XCUIRemote sharedRemote] pressButton:XCUIRemoteButtonMenu];
+#else
+  NSArray<XCUIElement *> *(^findMatchingKeys)(NSPredicate *) = ^NSArray<XCUIElement *> *(NSPredicate * predicate) {
+    NSPredicate *keysPredicate = [NSPredicate predicateWithFormat:@"elementType == %@", @(XCUIElementTypeKey)];
+    XCUIElementQuery *parentView = [[self.keyboard descendantsMatchingType:XCUIElementTypeOther]
+                                    containingPredicate:keysPredicate];
+    return [[parentView childrenMatchingType:XCUIElementTypeAny]
+            matchingPredicate:predicate].allElementsBoundByIndex;
+  };
+
+  if (nil != keyNames && keyNames.count > 0) {
+    NSPredicate *searchPredicate = [NSPredicate predicateWithBlock:^BOOL(XCElementSnapshot *snapshot, NSDictionary *bindings) {
+      if (snapshot.elementType != XCUIElementTypeKey && snapshot.elementType != XCUIElementTypeButton) {
+        return NO;
+      }
+
+      return (nil != snapshot.identifier && [keyNames containsObject:snapshot.identifier])
+        || (nil != snapshot.label && [keyNames containsObject:snapshot.label]);
+    }];
+    NSArray *matchedKeys = findMatchingKeys(searchPredicate);
+    if (matchedKeys.count > 0) {
+      for (XCUIElement *matchedKey in matchedKeys) {
+        if (!matchedKey.exists) {
+          continue;
+        }
+
+        [matchedKey fb_tapWithError:nil];
+        if (isKeyboardInvisible()) {
+          return YES;
+        }
+      }
+    }
+  }
+  
+  if ([UIDevice.currentDevice userInterfaceIdiom] == UIUserInterfaceIdiomPad) {
+    NSPredicate *searchPredicate = [NSPredicate predicateWithFormat:@"elementType IN %@",
+                                    @[@(XCUIElementTypeKey), @(XCUIElementTypeButton)]];
+    NSArray *matchedKeys = findMatchingKeys(searchPredicate);
+    if (matchedKeys.count > 0) {
+      [matchedKeys[matchedKeys.count - 1] fb_tapWithError:nil];
+    }
+  }
+#endif
+  NSString *errorDescription = @"Did not know how to dismiss the keyboard. Try to dismiss it in the way supported by your application under test.";
+  return [[[[FBRunLoopSpinner new]
+            timeout:3]
+           timeoutErrorMessage:errorDescription]
+          spinUntilTrue:isKeyboardInvisible
+          error:error];
 }
 
 @end

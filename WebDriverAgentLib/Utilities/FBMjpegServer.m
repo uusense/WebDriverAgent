@@ -326,6 +326,8 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
 - (void)sendScreenshot:(NSData *)screenshotData {
   NSString *chunkHeader = [NSString stringWithFormat:@"--BoundaryString\r\nContent-type: image/jpg\r\nContent-Length: %@\r\n\r\n", @(screenshotData.length)];
   NSMutableData *chunk = [[chunkHeader dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
+//  NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
+//  screenshotData = [screenshot dataUsingEncoding:kCFStringEncodingUTF8];
   [chunk appendData:screenshotData];
   [chunk appendData:(id)[@"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
   @synchronized (self.listeningClients) {

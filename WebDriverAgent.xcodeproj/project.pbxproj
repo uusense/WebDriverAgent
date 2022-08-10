@@ -2676,7 +2676,6 @@
 				EE35AD7B1E3B80C000A02D78 /* FBXCTestDaemonsProxy.h in Headers */,
 				EE35AD721E3B77D600A02D78 /* XCUIElementHitPointCoordinate.h in Headers */,
 				188940692153835800491471 /* UUMonkey.h in Headers */,
-				718226F82587446200661B83 /* YYCache.h in Headers */,
 				EE35AD3F1E3B77D600A02D78 /* XCTDarwinNotificationExpectation.h in Headers */,
 				EE35AD5F1E3B77D600A02D78 /* XCTRunnerAutomationSession.h in Headers */,
 				71C9EAAC25E8415A00470CD8 /* FBScreenshot.h in Headers */,

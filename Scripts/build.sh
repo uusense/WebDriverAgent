@@ -86,6 +86,8 @@ function xcbuild() {
 }
 
 function fastlane_test() {
+  bundle install
+
   if [[ -n "$XC_DESTINATION" ]]; then
     SDK="$XC_SDK" DEST="$XC_DESTINATION" SCHEME="$1" bundle exec fastlane test
   else

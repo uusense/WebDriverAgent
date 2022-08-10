@@ -10,7 +10,7 @@
 #import <XCTest/XCTest.h>
 
 @class XCElementSnapshot;
-@class XCAccessibilityElement;
+@protocol FBXCAccessibilityElement;
 @class FBXMLGenerationOptions;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -25,15 +25,6 @@ NS_ASSUME_NONNULL_BEGIN
  @return YES if the operation succeeds, otherwise NO.
  */
 - (BOOL)fb_deactivateWithDuration:(NSTimeInterval)duration error:(NSError **)error;
-
-/**
- Resets the authorization status for a protected resource. Available since Xcode 11.4
-
- @param resourceId A valid resource id to reset the auth status for. See https://developer.apple.com/documentation/xctest/xcuiprotectedresource?language=objc
- @param error If there is an error, upon return contains an NSError object that describes the problem.
- @return YES if the operation succeeds, otherwise NO.
- */
-- (BOOL)fb_resetAuthorizationStatusForResource:(long long)resourceId error:(NSError **)error;
 
 /**
  Return application elements tree in form of nested dictionaries
@@ -92,7 +83,7 @@ NS_ASSUME_NONNULL_BEGIN
  @param axElements the list of accessibility elements
  @returns The list of dictionaries. Each dictionary contains `bundleId` and `pid` items
  */
-+ (NSArray<NSDictionary<NSString *, id> *> *)fb_appsInfoWithAxElements:(NSArray<XCAccessibilityElement *> *)axElements;
++ (NSArray<NSDictionary<NSString *, id> *> *)fb_appsInfoWithAxElements:(NSArray<id<FBXCAccessibilityElement>> *)axElements;
 
 /**
  Retrieves the information about the currently active apps

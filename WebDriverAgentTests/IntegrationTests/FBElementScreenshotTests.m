@@ -9,6 +9,7 @@
 
 #import <XCTest/XCTest.h>
 
+#import "FBMacros.h"
 #import "FBIntegrationTestCase.h"
 #import "XCUIDevice+FBRotation.h"
 #import "XCUIElement+FBUtilities.h"
@@ -41,23 +42,11 @@
   XCUIElement *button = self.testedApplication.buttons[FBShowAlertButtonName];
   NSError *error = nil;
   NSData *screenshotData = [button fb_screenshotWithError:&error];
-  if (nil == screenshotData && [error.description containsString:@"available since Xcode9"]) {
-    return;
-  }
   XCTAssertNotNil(screenshotData);
   XCTAssertNil(error);
   UIImage *image = [UIImage imageWithData:screenshotData];
   XCTAssertNotNil(image);
   XCTAssertTrue(image.size.width > image.size.height);
-
-  XCUIScreen *mainScreen = XCUIScreen.mainScreen;
-  UIImage *buttonScreenshot = button.screenshot.image;
-  XCTAssertEqualWithAccuracy(buttonScreenshot.size.height * mainScreen.scale,
-                             image.size.height,
-                             FLT_EPSILON);
-  XCTAssertEqualWithAccuracy(buttonScreenshot.size.width * mainScreen.scale,
-                             image.size.width,
-                             FLT_EPSILON);
 }
 
 @end

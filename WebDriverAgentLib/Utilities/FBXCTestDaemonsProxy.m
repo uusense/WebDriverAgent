@@ -23,6 +23,10 @@
 
 static Class FBXCTRunnerDaemonSessionClass = nil;
 static dispatch_once_t onceTestRunnerDaemonClass;
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wobjc-load-method"
+
 + (void)load
 {
   // XCTRunnerDaemonSession class is only available since Xcode 8.3
@@ -30,6 +34,8 @@ static dispatch_once_t onceTestRunnerDaemonClass;
     FBXCTRunnerDaemonSessionClass = objc_lookUpClass("XCTRunnerDaemonSession");
   });
 }
+
+#pragma clang diagnostic pop
 
 + (id<XCTestManager_ManagerInterface>)testRunnerProxy
 {
@@ -50,12 +56,7 @@ static dispatch_once_t onceTestRunnerDaemonClass;
 
 + (id<XCTestManager_ManagerInterface>)retrieveTestRunnerProxy
 {
-  if ([XCTestDriver respondsToSelector:@selector(sharedTestDriver)] &&
-      [[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
-    return [XCTestDriver sharedTestDriver].managerProxy;
-  } else {
-    return ((XCTRunnerDaemonSession *)[FBXCTRunnerDaemonSessionClass sharedSession]).daemonProxy;
-  }
+  return ((XCTRunnerDaemonSession *)[FBXCTRunnerDaemonSessionClass sharedSession]).daemonProxy;
 }
 
 #if !TARGET_OS_TV
@@ -87,15 +88,9 @@ static dispatch_once_t onceTestRunnerDaemonClass;
       XCEventGeneratorHandler handlerBlock = ^(XCSynthesizedEventRecord *innerRecord, NSError *invokeError) {
         errorHandler(invokeError);
       };
-      if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {
-        [[XCUIDevice.sharedDevice eventSynthesizer] synthesizeEvent:record completion:(id)^(BOOL result, NSError *invokeError) {
-          handlerBlock(record, invokeError);
-        }];
-      } else {
-        [[FBXCTRunnerDaemonSessionClass sharedSession] synthesizeEvent:record completion:^(NSError *invokeError){
-          handlerBlock(record, invokeError);
-        }];
-      }
+      [[XCUIDevice.sharedDevice eventSynthesizer] synthesizeEvent:record completion:(id)^(BOOL result, NSError *invokeError) {
+        handlerBlock(record, invokeError);
+      }];
     }
   }];
   return didSucceed;

@@ -125,21 +125,14 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
     }
     
     if (version.doubleValue >= 14.1) {
-      
         rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
-      
         if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
           rect = CGRectNull;
         }
-        
-        CGFloat screenshotCompressionQuality = 0.6;
-      
-        //id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
-        //dispatch_semaphore_t sem = dispatch_semaphore_create(0);
         [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]
                                              withRect:rect
                                                   uti:(__bridge id)kUTTypeJPEG
-                                   compressionQuality:screenshotCompressionQuality
+                                   compressionQuality:FBMaxCompressionQuality
                                             withReply:^(NSData *data, NSError *err) {
             if (err != nil) {
                 [FBLogger logFmt:@"Error taking screenshot: %@", [error description]];
@@ -155,7 +148,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   }
   
   if (![mainScreen respondsToSelector: @selector(screenshotDataForQuality:rect:error:)]) {
-      CGFloat screenshotCompressionQuality = 0.6;
+      CGFloat screenshotCompressionQuality = 1.0;
       id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
       dispatch_semaphore_t sem = dispatch_semaphore_create(0);
       [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]

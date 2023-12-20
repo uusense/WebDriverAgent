@@ -55,11 +55,7 @@
          };
          if (nil == FBXCTRunnerDaemonSessionClass) {
            id<XCTestManager_ManagerInterface> proxy = nil;
-           if ([[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
-             proxy = [XCTestDriver sharedTestDriver].managerProxy;
-           } else {
-             proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
-           }
+            proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
            [proxy _XCT_synthesizeEvent:event completion:errorHandler];
          } else {
            if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {
@@ -107,11 +103,7 @@
       };
       if (nil == FBXCTRunnerDaemonSessionClass) {
         id<XCTestManager_ManagerInterface> proxy = nil;
-        if ([[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
-          proxy = [XCTestDriver sharedTestDriver].managerProxy;
-        } else {
-          proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
-        }
+        proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
         [proxy _XCT_synthesizeEvent:event completion:errorHandler];
       } else {
         if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {
@@ -155,11 +147,7 @@
       };
       if (nil == FBXCTRunnerDaemonSessionClass) {
         id<XCTestManager_ManagerInterface> proxy = nil;
-        if ([[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
-          proxy = [XCTestDriver sharedTestDriver].managerProxy;
-        } else {
-          proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
-        }
+        proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
         [proxy _XCT_synthesizeEvent:event completion:errorHandler];
       } else {
         if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {

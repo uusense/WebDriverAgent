@@ -375,11 +375,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   };
   if (nil == FBXCTRunnerDaemonSessionClass) {
     id<XCTestManager_ManagerInterface> proxy = nil;
-    if ([[XCTestDriver sharedTestDriver] respondsToSelector:@selector(managerProxy)]) {
-      proxy = [XCTestDriver sharedTestDriver].managerProxy;
-    } else {
-      proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
-    }
+    proxy = ((XCTRunnerDaemonSession *)[objc_lookUpClass("XCTRunnerDaemonSession") sharedSession]).daemonProxy;
     [proxy _XCT_synthesizeEvent:event completion:errorHandler];
   } else {
     if ([XCUIDevice.sharedDevice respondsToSelector:@selector(eventSynthesizer)]) {
@@ -439,27 +435,6 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   return FBResponseWithObject(@{
                                 @"ssid": ssid?:@"",
                                 });
-}
-
-+ (id<FBResponsePayload>)uuSource:(FBRouteRequest *)request {
-  CFAbsoluteTime start = CFAbsoluteTimeGetCurrent();
-  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
-  NSString *sourceType = request.parameters[@"format"];
-  id result;
-  if (!sourceType || [sourceType caseInsensitiveCompare:@"xml"] == NSOrderedSame) {
-    result = [FBXPath uuXmlStringWithSnapshot:application.lastSnapshot];
-  } else if ([sourceType caseInsensitiveCompare:@"json"] == NSOrderedSame) {
-    result = application.fb_tree;
-  } else {
-    return FBResponseWithStatus([FBCommandStatus unsupportedOperationErrorWithMessage:[NSString stringWithFormat:@"Unknown source type '%@'. Only 'xml' and 'json' source types are supported.", sourceType] traceback:nil]);
-  }
-  if (nil == result) {
-    return FBResponseWithUnknownErrorFormat(@"Cannot get '%@' source of the current application", sourceType);
-  }
-  
-  CFAbsoluteTime end = CFAbsoluteTimeGetCurrent();
-  NSLog(@"time cost: %0.3f", end - start);
-  return FBResponseWithObject(result);
 }
 
 + (id<FBResponsePayload>)uuBack:(FBRouteRequest *)request {

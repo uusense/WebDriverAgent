@@ -14,7 +14,7 @@
 
 @interface UUMonkeySingleton : NSObject
 
-@property (nonatomic, weak) XCUIApplication *application;
+@property (nonatomic, strong) XCUIApplication *application;
 @property (nonatomic, strong) UUMonkey *monkey;
 
 + (instancetype)sharedInstance;

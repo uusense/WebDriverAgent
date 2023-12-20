@@ -55,8 +55,6 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable NSString *)xmlStringWithRootElement:(id<FBElement>)root
                                         options:(nullable FBXMLGenerationOptions *)options;
 
-+ (nullable NSString *)uuXmlStringWithSnapshot:(XCElementSnapshot *)root;
-
 @end
 
 NS_ASSUME_NONNULL_END

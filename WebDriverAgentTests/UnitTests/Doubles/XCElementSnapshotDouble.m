@@ -11,6 +11,7 @@
 
 #import "FBXCAccessibilityElement.h"
 #import "FBXCElementSnapshot.h"
+#import "XCUIHitPointResult.h"
 
 @implementation XCElementSnapshotDouble
 
@@ -18,6 +19,7 @@
 {
   self = [super init];
   self->_value = @"magicValue";
+  self->_label = @"testLabel";
   return self;
 }
 
@@ -34,11 +36,6 @@
 - (NSString *)title
 {
   return @"testTitle";
-}
-
-- (NSString *)label
-{
-  return @"testLabel";
 }
 
 - (XCUIElementType)elementType
@@ -89,6 +86,11 @@
 - (id<FBXCElementSnapshot>)parent
 {
   return nil;
+}
+
+- (XCUIHitPointResult *)hitPoint:(NSError **)error
+{
+  return [[XCUIHitPointResult alloc] initWithHitPoint:CGPointZero hittable:YES];
 }
 
 - (NSArray *)children

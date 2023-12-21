@@ -68,9 +68,16 @@
   if (!urlString) {
     return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"URL is required" traceback:nil]);
   }
+  NSString* bundleId = request.arguments[@"bundleId"];
   NSError *error;
-  if (![XCUIDevice.sharedDevice fb_openUrl:urlString error:&error]) {
-    return FBResponseWithUnknownError(error);
+  if (nil == bundleId) {
+    if (![XCUIDevice.sharedDevice fb_openUrl:urlString error:&error]) {
+      return FBResponseWithUnknownError(error);
+    }
+  } else {
+    if (![XCUIDevice.sharedDevice fb_openUrl:urlString withApplication:bundleId error:&error]) {
+      return FBResponseWithUnknownError(error);
+    }
   }
   return FBResponseWithOK();
 }
@@ -90,6 +97,8 @@
   if (nil == (capabilities = FBParseCapabilities((NSDictionary *)request.arguments[@"capabilities"], &error))) {
     return FBResponseWithStatus([FBCommandStatus sessionNotCreatedError:error.description traceback:nil]);
   }
+
+  [FBConfiguration resetSessionSettings];
   [FBConfiguration setShouldUseTestManagerForVisibilityDetection:[capabilities[FB_CAP_USE_TEST_MANAGER_FOR_VISIBLITY_DETECTION] boolValue]];
   if (capabilities[FB_SETTING_USE_COMPACT_RESPONSES]) {
     [FBConfiguration setShouldUseCompactResponses:[capabilities[FB_SETTING_USE_COMPACT_RESPONSES] boolValue]];
@@ -98,8 +107,8 @@
   if (elementResponseAttributes) {
     [FBConfiguration setElementResponseAttributes:elementResponseAttributes];
   }
-  if (capabilities[FB_CAP_MAX_TYPING_FREQUNCY]) {
-    [FBConfiguration setMaxTypingFrequency:[capabilities[FB_CAP_MAX_TYPING_FREQUNCY] unsignedIntegerValue]];
+  if (capabilities[FB_CAP_MAX_TYPING_FREQUENCY]) {
+    [FBConfiguration setMaxTypingFrequency:[capabilities[FB_CAP_MAX_TYPING_FREQUENCY] unsignedIntegerValue]];
   }
   if (capabilities[FB_CAP_USE_SINGLETON_TEST_MANAGER]) {
     [FBConfiguration setShouldUseSingletonTestManager:[capabilities[FB_CAP_USE_SINGLETON_TEST_MANAGER] boolValue]];
@@ -272,7 +281,8 @@
 #endif
           @"ip" : [XCUIDevice sharedDevice].fb_wifiIPAddress ?: [NSNull null]
         },
-      @"build" : buildInfo.copy
+      @"build" : buildInfo.copy,
+      @"device": [self.class deviceNameByUserInterfaceIdiom:[UIDevice currentDevice].userInterfaceIdiom]
     }
   );
 }
@@ -294,6 +304,7 @@
       FB_SETTING_MJPEG_SERVER_SCREENSHOT_QUALITY: @([FBConfiguration mjpegServerScreenshotQuality]),
       FB_SETTING_MJPEG_SERVER_FRAMERATE: @([FBConfiguration mjpegServerFramerate]),
       FB_SETTING_MJPEG_SCALING_FACTOR: @([FBConfiguration mjpegScalingFactor]),
+      FB_SETTING_MJPEG_FIX_ORIENTATION: @([FBConfiguration mjpegShouldFixOrientation]),
       FB_SETTING_SCREENSHOT_QUALITY: @([FBConfiguration screenshotQuality]),
       FB_SETTING_KEYBOARD_AUTOCORRECTION: @([FBConfiguration keyboardAutocorrection]),
       FB_SETTING_KEYBOARD_PREDICTION: @([FBConfiguration keyboardPrediction]),
@@ -340,6 +351,9 @@
   }
   if (nil != [settings objectForKey:FB_SETTING_MJPEG_SCALING_FACTOR]) {
     [FBConfiguration setMjpegScalingFactor:[[settings objectForKey:FB_SETTING_MJPEG_SCALING_FACTOR] unsignedIntegerValue]];
+  }
+  if (nil != [settings objectForKey:FB_SETTING_MJPEG_FIX_ORIENTATION]) {
+    [FBConfiguration setMjpegShouldFixOrientation:[[settings objectForKey:FB_SETTING_MJPEG_FIX_ORIENTATION] boolValue]];
   }
   if (nil != [settings objectForKey:FB_SETTING_KEYBOARD_AUTOCORRECTION]) {
     [FBConfiguration setKeyboardAutocorrection:[[settings objectForKey:FB_SETTING_KEYBOARD_AUTOCORRECTION] boolValue]];
@@ -404,10 +418,9 @@
     NSError *error;
     if (![FBConfiguration setScreenshotOrientation:(NSString *)[settings objectForKey:FB_SETTING_SCREENSHOT_ORIENTATION]
                                              error:&error]) {
-      return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.description traceback:nil]);
+      return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.description
+                                                                         traceback:nil]);
     }
-
-
   }
 #endif
 
@@ -425,6 +438,10 @@
   ];
 }
 
+/**
+ Return current session information.
+ This response does not have any active application information.
+*/
 + (NSDictionary *)sessionInformation
 {
   return
@@ -434,15 +451,29 @@
   };
 }
 
+/*
+ Return the device kind as lower case
+*/
++ (NSString *)deviceNameByUserInterfaceIdiom:(UIUserInterfaceIdiom) userInterfaceIdiom
+{
+  if (userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+    return @"ipad";
+  } else if (userInterfaceIdiom == UIUserInterfaceIdiomTV) {
+    return @"apple tv";
+  } else if (userInterfaceIdiom == UIUserInterfaceIdiomPhone) {
+    return @"iphone";
+  }
+  // CarPlay, Mac, Vision UI or unknown are possible
+  return @"Unknown";
+  
+}
+
 + (NSDictionary *)currentCapabilities
 {
-  FBApplication *application = [FBSession activeSession].activeApplication;
   return
   @{
-    @"device": ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) ? @"ipad" : @"iphone",
-    @"sdkVersion": [[UIDevice currentDevice] systemVersion],
-    @"browserName": application.label ?: [NSNull null],
-    @"CFBundleIdentifier": application.bundleID ?: [NSNull null],
+    @"device": [self.class deviceNameByUserInterfaceIdiom:[UIDevice currentDevice].userInterfaceIdiom],
+    @"sdkVersion": [[UIDevice currentDevice] systemVersion]
   };
 }
 

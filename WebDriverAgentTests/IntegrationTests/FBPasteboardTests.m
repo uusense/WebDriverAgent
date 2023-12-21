@@ -44,7 +44,7 @@
   if (![pastItemsQuery.firstMatch waitForExistenceWithTimeout:2.0]) {
     XCTFail(@"No matched element named 'Paste'");
   }
-  XCUIElement *pasteItem = pastItemsQuery.fb_firstMatch;
+  XCUIElement *pasteItem = pastItemsQuery.firstMatch;
   XCTAssertNotNil(pasteItem);
   [pasteItem tap];
   FBAssertWaitTillBecomesTrue([textField.value isEqualToString:text]);
@@ -71,11 +71,7 @@
   FBWaitExact(1.0);
   NSData *result = [FBPasteboard dataForType:@"plaintext" error:&error];
   XCTAssertNil(error);
-  if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"16.0")) {
-    // Pasteboard permission appears in a simulator. Not in a real device.
-  } else {
-    XCTAssertEqualObjects(textField.value, [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding]);
-  }
+  XCTAssertEqualObjects(textField.value, [[NSString alloc] initWithData:result encoding:NSUTF8StringEncoding]);
 }
 
 - (void)testUrlCopyPaste

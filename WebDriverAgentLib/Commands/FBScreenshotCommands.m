@@ -24,9 +24,9 @@
 #import "FBLogger.h"
 #import "FBScreenshot.h"
 #import "FBMacros.h"
-#import "FBImageIOScaler.h"
 #import "FBConfiguration.h"
 #import "FBErrorBuilder.h"
+#import "FBImageProcessor.h"
 
 static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
 
@@ -58,7 +58,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   if (nil == screenshotData) {
     return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
   }
-  NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
+  NSString *screenshot = [screenshotData base64EncodedStringWithOptions:0];
   return FBResponseWithObject(screenshot);
 }
 
@@ -94,7 +94,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
     rect = CGRectNull;
   }
   
-  if ([FBScreenshot isNewScreenshotAPISupported]) {
+  if ([FBScreenshotCommands isNewScreenshotAPISupported]) {
     id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
     __block NSError *innerError = nil;
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
@@ -304,6 +304,16 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   }
   CFRelease(imageDestination);
   return newImageData;
+}
+
++ (BOOL)isNewScreenshotAPISupported
+{
+  static dispatch_once_t newScreenshotAPISupported;
+  static BOOL result;
+  dispatch_once(&newScreenshotAPISupported, ^{
+    result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
+  });
+  return result;
 }
 
 

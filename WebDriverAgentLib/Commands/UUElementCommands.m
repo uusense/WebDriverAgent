@@ -31,7 +31,6 @@
 #import "XCUIElement+FBIsVisible.h"
 #import "XCUIElement+FBPickerWheel.h"
 #import "XCUIElement+FBScrolling.h"
-#import "XCUIElement+FBTap.h"
 #import "XCUIElement+FBTyping.h"
 #import "XCUIElement+FBUtilities.h"
 #import "XCUIElement+FBWebDriverAttributes.h"
@@ -200,46 +199,6 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     [event addPointerEventPath:eventPath];
     [UUElementCommands uuSynthesizeEvent:event andHandle:handlerBlock];
   }];
-  return FBResponseWithOK();
-}
-
-+ (id<FBResponsePayload>)uuDealAlert:(FBRouteRequest *)request {
-  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
-  FBAlert *alert = [FBAlert alertWithApplication:application];
-  NSError *error;
-  NSInteger counts = 0;
-  while (alert.isPresent && counts < 10) {
-    [alert uuAcceptWithError:&error];
-    alert = [FBAlert alertWithApplication:application];
-    counts += 1;
-  }
-  if (error) {
-    return FBResponseWithUnknownError(error);
-  }
-  return FBResponseWithOK();
-}
-
-+ (id<FBResponsePayload>)uuDealAlertWithParam:(FBRouteRequest *)request {
-  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
-  BOOL accept = [request.arguments[@"accept"] boolValue];
-  FBAlert *alert = [FBAlert alertWithApplication:application];
-  if (nil == alert) {
-    return FBResponseWithOK();
-  }
-  NSError *error;
-  NSInteger counts = 0;
-  while (alert.isPresent && counts < 10) {
-    if (accept) {
-      [alert uuAcceptWithError:&error];
-    } else {
-      [alert uuDismissWithError:&error];
-    }
-    alert = [FBAlert alertWithApplication:application];
-    counts += 1;
-  }
-  if (error) {
-    return FBResponseWithUnknownError(error);
-  }
   return FBResponseWithOK();
 }
 
@@ -581,9 +540,6 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
  */
 + (XCUICoordinate *)uuGestureCoordinateWithCoordinate:(CGPoint)coordinate application:(XCUIApplication *)application shouldApplyOrientationWorkaround:(BOOL)shouldApplyOrientationWorkaround {
   CGPoint point = coordinate;
-  if (shouldApplyOrientationWorkaround) {
-    point = FBInvertPointForApplication(coordinate, application.frame.size, application.interfaceOrientation);
-  }
   XCUICoordinate *appCoordinate = [[XCUICoordinate alloc] initWithElement:application normalizedOffset:CGVectorMake(0, 0)];
   return [[XCUICoordinate alloc] initWithCoordinate:appCoordinate pointsOffset:CGVectorMake(point.x, point.y)];
 }

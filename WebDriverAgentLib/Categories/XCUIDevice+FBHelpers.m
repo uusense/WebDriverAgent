@@ -21,6 +21,7 @@
 #import "FBScreenshot.h"
 #import "FBXCDeviceEvent.h"
 #import "FBXCodeCompatibility.h"
+#import "FBXCTestDaemonsProxy.h"
 #import "XCUIDevice.h"
 
 static const NSTimeInterval FBHomeButtonCoolOffTime = 1.;
@@ -85,11 +86,7 @@ static bool fb_isLocked;
   [self pressButton:XCUIDeviceButtonHome];
   [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:FBHomeButtonCoolOffTime]];
 #if !TARGET_OS_TV
-  if (SYSTEM_VERSION_LESS_THAN(@"10.0")) {
-    [[FBApplication fb_activeApplication] swipeRight];
-  } else {
-    [self pressButton:XCUIDeviceButtonHome];
-  }
+  [self pressButton:XCUIDeviceButtonHome];
 #else
   [self pressButton:XCUIDeviceButtonHome];
 #endif
@@ -236,20 +233,38 @@ static bool fb_isLocked;
             buildError:error];
   }
 
+  NSError *err;
+  if ([FBXCTestDaemonsProxy openDefaultApplicationForURL:parsedUrl error:&err]) {
+    return YES;
+  }
+  if (![err.description containsString:@"does not support"]) {
+    if (error) {
+      *error = err;
+    }
+    return NO;
+  }
+
   id siriService = [self valueForKey:@"siriService"];
   if (nil != siriService) {
     return [self fb_activateSiriVoiceRecognitionWithText:[NSString stringWithFormat:@"Open {%@}", url] error:error];
   }
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  // The link never gets opened by this method: https://forums.developer.apple.com/thread/25355
-  if (![[UIApplication sharedApplication] openURL:parsedUrl]) {
-#pragma clang diagnostic pop
+
+  NSString *description = [NSString stringWithFormat:@"Cannot open '%@' with the default application assigned for it. Consider upgrading to Xcode 14.3+/iOS 16.4+", url];
+  return [[[FBErrorBuilder builder]
+           withDescriptionFormat:@"%@", description]
+          buildError:error];;
+}
+
+- (BOOL)fb_openUrl:(NSString *)url withApplication:(NSString *)bundleId error:(NSError **)error
+{
+  NSURL *parsedUrl = [NSURL URLWithString:url];
+  if (nil == parsedUrl) {
     return [[[FBErrorBuilder builder]
-             withDescriptionFormat:@"The URL %@ cannot be opened", url]
+             withDescriptionFormat:@"'%@' is not a valid URL", url]
             buildError:error];
   }
-  return YES;
+
+  return [FBXCTestDaemonsProxy openURL:parsedUrl usingApplication:bundleId error:error];
 }
 
 - (BOOL)fb_activateSiriVoiceRecognitionWithText:(NSString *)text error:(NSError **)error
@@ -403,6 +418,16 @@ static bool fb_isLocked;
     [invocation invoke];
     return YES;
   }
+
+#if __clang_major__ >= 15 || (__clang_major__ >= 14 && __clang_minor__ >= 0 && __clang_patchlevel__ >= 3)
+  // Xcode 14.3.1 can build these values.
+  // For iOS 17+
+  if ([self respondsToSelector:NSSelectorFromString(@"appearance")]) {
+    self.appearance = (XCUIDeviceAppearance) appearance;
+    return YES;
+  }
+#endif
+
   return [[[FBErrorBuilder builder]
            withDescriptionFormat:@"Current Xcode SDK does not support appearance changing"]
           buildError:error];
@@ -410,9 +435,34 @@ static bool fb_isLocked;
 
 - (NSNumber *)fb_getAppearance
 {
+#if __clang_major__ >= 15 || (__clang_major__ >= 14 && __clang_minor__ >= 0 && __clang_patchlevel__ >= 3)
+  // Xcode 14.3.1 can build these values.
+  // For iOS 17+
+  if ([self respondsToSelector:NSSelectorFromString(@"appearance")]) {
+    return [NSNumber numberWithLongLong:[self appearance]];
+  }
+#endif
+
   return [self respondsToSelector:@selector(appearanceMode)]
   ? [NSNumber numberWithLongLong:[self appearanceMode]]
   : nil;
 }
+
+#if !TARGET_OS_TV
+- (BOOL)fb_setSimulatedLocation:(CLLocation *)location error:(NSError **)error
+{
+  return [FBXCTestDaemonsProxy setSimulatedLocation:location error:error];
+}
+
+- (nullable CLLocation *)fb_getSimulatedLocation:(NSError **)error
+{
+  return [FBXCTestDaemonsProxy getSimulatedLocation:error];
+}
+
+- (BOOL)fb_clearSimulatedLocation:(NSError **)error
+{
+  return [FBXCTestDaemonsProxy clearSimulatedLocation:error];
+}
+#endif
 
 @end

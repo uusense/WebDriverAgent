@@ -78,14 +78,12 @@
   XCTAssertTrue(screenshot.size.width > screenshot.size.height);
 
   XCUIScreen *mainScreen = XCUIScreen.mainScreen;
-  // TODO: This screenshot rotation was not landscape in an iOS 16 beta simulator. 
   UIImage *screenshotExact = ((XCUIScreenshot *)mainScreen.screenshot).image;
-  XCTAssertEqualWithAccuracy(screenshotExact.size.height * mainScreen.scale,
-                             screenshot.size.height,
-                             FLT_EPSILON);
-  XCTAssertEqualWithAccuracy(screenshotExact.size.width * mainScreen.scale,
-                             screenshot.size.width,
-                             FLT_EPSILON);
+  CGSize realMainScreenSize = screenshotExact.size.height > screenshot.size.width
+    ? CGSizeMake(screenshotExact.size.height * mainScreen.scale, screenshotExact.size.width * mainScreen.scale)
+    : CGSizeMake(screenshotExact.size.width * mainScreen.scale, screenshotExact.size.height * mainScreen.scale);
+  XCTAssertEqualWithAccuracy(realMainScreenSize.height, screenshot.size.height, FLT_EPSILON);
+  XCTAssertEqualWithAccuracy(realMainScreenSize.width, screenshot.size.width, FLT_EPSILON);
 }
 
 - (void)testWifiAddress
@@ -118,14 +116,56 @@
   XCTAssertNil(error);
 }
 
-- (void)disabled_testUrlSchemeActivation
+- (void)testUrlSchemeActivation
 {
-  // This test is not stable on CI because of system slowness
+  if (SYSTEM_VERSION_LESS_THAN(@"16.4")) {
+    return;
+  }
+
   NSError *error;
   XCTAssertTrue([XCUIDevice.sharedDevice fb_openUrl:@"https://apple.com" error:&error]);
   FBAssertWaitTillBecomesTrue([FBApplication.fb_activeApplication.bundleID isEqualToString:@"com.apple.mobilesafari"]);
   XCTAssertNil(error);
 }
+
+- (void)testUrlSchemeActivationWithApp
+{
+  if (SYSTEM_VERSION_LESS_THAN(@"16.4")) {
+    return;
+  }
+
+  NSError *error;
+  XCTAssertTrue([XCUIDevice.sharedDevice fb_openUrl:@"https://apple.com"
+                                    withApplication:@"com.apple.mobilesafari"
+                                              error:&error]);
+  FBAssertWaitTillBecomesTrue([FBApplication.fb_activeApplication.bundleID isEqualToString:@"com.apple.mobilesafari"]);
+  XCTAssertNil(error);
+}
+
+#if !TARGET_OS_TV
+- (void)testSimulatedLocationSetup
+{
+  if (SYSTEM_VERSION_LESS_THAN(@"16.4")) {
+    return;
+  }
+
+  CLLocation *simulatedLocation = [[CLLocation alloc] initWithLatitude:50 longitude:50];
+  NSError *error;
+  XCTAssertTrue([XCUIDevice.sharedDevice fb_setSimulatedLocation:simulatedLocation error:&error]);
+  XCTAssertNil(error);
+  CLLocation *currentLocation = [XCUIDevice.sharedDevice fb_getSimulatedLocation:&error];
+  XCTAssertNil(error);
+  XCTAssertNotNil(currentLocation);
+  XCTAssertEqualWithAccuracy(simulatedLocation.coordinate.latitude, currentLocation.coordinate.latitude, 0.1);
+  XCTAssertEqualWithAccuracy(simulatedLocation.coordinate.longitude, currentLocation.coordinate.longitude, 0.1);
+  XCTAssertTrue([XCUIDevice.sharedDevice fb_clearSimulatedLocation:&error]);
+  XCTAssertNil(error);
+  currentLocation = [XCUIDevice.sharedDevice fb_getSimulatedLocation:&error];
+  XCTAssertNil(error);
+  XCTAssertNotEqualWithAccuracy(simulatedLocation.coordinate.latitude, currentLocation.coordinate.latitude, 0.1);
+  XCTAssertNotEqualWithAccuracy(simulatedLocation.coordinate.longitude, currentLocation.coordinate.longitude, 0.1);
+}
+#endif
 
 - (void)testPressingUnsupportedButton
 {

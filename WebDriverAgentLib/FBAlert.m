@@ -276,45 +276,4 @@
 }
 
 
-- (BOOL)uuAcceptWithError:(NSError **)error
-{
-  XCUIElement *alertElement = self.alertElement;
-  NSArray<XCUIElement *> *buttons = [alertElement descendantsMatchingType:XCUIElementTypeButton].allElementsBoundByIndex;
-  
-  XCUIElement *defaultButton;
-  if (alertElement.elementType == XCUIElementTypeAlert && [buttons count] < 3) {
-    defaultButton = buttons.lastObject;
-  } else {
-    defaultButton = buttons.firstObject;
-  }
-  if (!defaultButton) {
-    return
-    [[[FBErrorBuilder builder]
-      withDescriptionFormat:@"Failed to find accept button for alert: %@", alertElement]
-     buildError:error];
-  }
-  return [defaultButton fb_tapWithError:error];
-}
-
-- (BOOL)uuDismissWithError:(NSError **)error
-{
-  XCUIElement *cancelButton;
-  XCUIElement *alertElement = self.alertElement;
-  NSArray<XCUIElement *> *buttons = [alertElement descendantsMatchingType:XCUIElementTypeButton].allElementsBoundByIndex;
-  
-  if (alertElement.elementType == XCUIElementTypeAlert) {
-    cancelButton = buttons.firstObject;
-  } else {
-    cancelButton = buttons.lastObject;
-  }
-  if (!cancelButton) {
-    return
-    [[[FBErrorBuilder builder]
-      withDescriptionFormat:@"Failed to find dismiss button for alert: %@", alertElement]
-     buildError:error];
-    return NO;
-  }
-  return [cancelButton fb_tapWithError:error];
-}
-
 @end

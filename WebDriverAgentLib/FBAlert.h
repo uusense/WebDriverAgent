@@ -56,8 +56,6 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (BOOL)acceptWithError:(NSError **)error;
 
-- (BOOL)uuAcceptWithError:(NSError **)error;
-
 /**
  Dismisses alert, if present
 
@@ -65,8 +63,6 @@ NS_ASSUME_NONNULL_BEGIN
  @return YES if the operation succeeds, otherwise NO.
  */
 - (BOOL)dismissWithError:(NSError **)error;
-
-- (BOOL)uuDismissWithError:(NSError **)error;
 
 /**
  Clicks on an alert button, if present

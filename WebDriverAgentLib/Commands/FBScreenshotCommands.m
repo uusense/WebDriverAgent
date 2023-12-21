@@ -58,7 +58,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   if (nil == screenshotData) {
     return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
   }
-  NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
+  NSString *screenshot = [screenshotData base64EncodedStringWithOptions:0];
   return FBResponseWithObject(screenshot);
 }
 

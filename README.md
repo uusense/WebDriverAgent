@@ -33,7 +33,10 @@ If you are having some issues please checkout [wiki](https://github.com/facebook
 If you want to help us out, you are more than welcome to. However please make sure you have followed the guidelines in [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Creating Bundles
-Follow [this doc](docs/CREATING_BUNDLES.md)
+
+`npm run bundle`
+
+Then, you find `WebDriverAgentRunner-Runner-sim-<version>.zip`  for iOS and `WebDriverAgentRunner-Runner-tv_sim-<version>.zip` for tvOS files in the current directory.
 
 ## License
 
@@ -51,4 +54,3 @@ projects has been integrated directly in the WebDriverAgent source tree.
 You can find the source files and their licenses in the `WebDriverAgentLib/Vendor` directory.
 
 Have fun!
-

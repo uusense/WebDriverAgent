@@ -11,14 +11,15 @@
 
 
 #import <mach/mach_time.h>
-#import <MobileCoreServices/MobileCoreServices.h>
+@import UniformTypeIdentifiers;
 
 #import "GCDAsyncSocket.h"
 #import "FBApplication.h"
 #import "FBConfiguration.h"
 #import "FBLogger.h"
 #import "FBScreenshot.h"
-#import "FBImageIOScaler.h"
+#import "FBImageProcessor.h"
+#import "FBImageUtils.h"
 #import "XCUIScreen.h"
 
 static const NSUInteger MAX_FPS = 60;
@@ -41,8 +42,7 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
 
 @property (nonatomic, readonly) dispatch_queue_t backgroundQueue;
 @property (nonatomic, readonly) NSMutableArray<GCDAsyncSocket *> *listeningClients;
-@property (nonatomic, readonly) mach_timebase_info_data_t timebaseInfo;
-@property (nonatomic, readonly) FBImageIOScaler *imageScaler;
+@property (nonatomic, readonly) FBImageProcessor *imageProcessor;
 @property (nonatomic, readonly) long long mainScreenID;
 
 @end
@@ -247,11 +247,10 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
     _listeningClients = [NSMutableArray array];
     dispatch_queue_attr_t queueAttributes = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0);
     _backgroundQueue = dispatch_queue_create(QUEUE_NAME, queueAttributes);
-    mach_timebase_info(&_timebaseInfo);
     dispatch_async(_backgroundQueue, ^{
       [self streamScreenshot];
     });
-    _imageScaler = [[FBImageIOScaler alloc] init];
+    _imageProcessor = [[FBImageProcessor alloc] init];
     _mainScreenID = [XCUIScreen.mainScreen displayID];
   }
   return self;
@@ -259,8 +258,8 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
 
 - (void)scheduleNextScreenshotWithInterval:(uint64_t)timerInterval timeStarted:(uint64_t)timeStarted
 {
-  uint64_t timeElapsed = mach_absolute_time() - timeStarted;
-  int64_t nextTickDelta = timerInterval - timeElapsed * self.timebaseInfo.numer / self.timebaseInfo.denom;
+  uint64_t timeElapsed = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) - timeStarted;
+  int64_t nextTickDelta = timerInterval - timeElapsed;
   if (nextTickDelta > 0) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, nextTickDelta), self.backgroundQueue, ^{
       [self streamScreenshot];
@@ -275,14 +274,9 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
 
 - (void)streamScreenshot
 {
-  if (![self.class canStreamScreenshots]) {
-    [FBLogger log:@"MJPEG server cannot start because the current iOS version is not supported"];
-    return;
-  }
-
   NSUInteger framerate = FBConfiguration.mjpegServerFramerate;
   uint64_t timerInterval = (uint64_t)(1.0 / ((0 == framerate || framerate > MAX_FPS) ? MAX_FPS : framerate) * NSEC_PER_SEC);
-  uint64_t timeStarted = mach_absolute_time();
+  uint64_t timeStarted = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
   @synchronized (self.listeningClients) {
     if (0 == self.listeningClients.count) {
       [self scheduleNextScreenshotWithInterval:timerInterval timeStarted:timeStarted];
@@ -290,16 +284,12 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
     }
   }
 
-  CGFloat scalingFactor = [FBConfiguration mjpegScalingFactor] / 100.0f;
-  BOOL usesScaling = fabs(FBMaxScalingFactor - scalingFactor) > DBL_EPSILON;
-  CGFloat compressionQuality = FBConfiguration.mjpegServerScreenshotQuality / 100.0f;
-  // If scaling is applied we perform another JPEG compression after scaling
-  // To get the desired compressionQuality we need to do a lossless compression here
-  CGFloat screenshotCompressionQuality = usesScaling ? FBMaxCompressionQuality : compressionQuality;
   NSError *error;
+  CGFloat compressionQuality = MAX(FBMinCompressionQuality,
+                                   MIN(FBMaxCompressionQuality, FBConfiguration.mjpegServerScreenshotQuality / 100.0));
   NSData *screenshotData = [FBScreenshot takeInOriginalResolutionWithScreenID:self.mainScreenID
-                                                           compressionQuality:screenshotCompressionQuality
-                                                                          uti:(__bridge id)kUTTypeJPEG
+                                                           compressionQuality:compressionQuality
+                                                                          uti:UTTypeJPEG
                                                                       timeout:FRAME_TIMEOUT
                                                                         error:&error];
   if (nil == screenshotData) {
@@ -308,23 +298,18 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
     return;
   }
 
-  if (usesScaling) {
-    [self.imageScaler submitImage:screenshotData
-                              uti:(__bridge id)kUTTypeJPEG
-                    scalingFactor:scalingFactor
-               compressionQuality:compressionQuality
-                completionHandler:^(NSData * _Nonnull scaled) {
-                  [self sendScreenshot:scaled];
-                }];
-  } else {
-    [self sendScreenshot:screenshotData];
-  }
+  CGFloat scalingFactor = FBConfiguration.mjpegScalingFactor / 100.0;
+  [self.imageProcessor submitImageData:screenshotData
+                         scalingFactor:scalingFactor
+                     completionHandler:^(NSData * _Nonnull scaled) {
+    [self sendScreenshot:scaled];
+  }];
 
   [self scheduleNextScreenshotWithInterval:timerInterval timeStarted:timeStarted];
 }
 
 - (void)sendScreenshot:(NSData *)screenshotData {
-  NSString *chunkHeader = [NSString stringWithFormat:@"--BoundaryString\r\nContent-type: image/jpg\r\nContent-Length: %@\r\n\r\n", @(screenshotData.length)];
+  NSString *chunkHeader = [NSString stringWithFormat:@"--BoundaryString\r\nContent-type: image/jpeg\r\nContent-Length: %@\r\n\r\n", @(screenshotData.length)];
   NSMutableData *chunk = [[chunkHeader dataUsingEncoding:NSUTF8StringEncoding] mutableCopy];
 //  NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
 //  screenshotData = [screenshot dataUsingEncoding:kCFStringEncodingUTF8];
@@ -335,11 +320,6 @@ static const char *QUEUE_NAME = "JPEG Screenshots Provider Queue";
       [client writeData:chunk withTimeout:-1 tag:0];
     }
   }
-}
-
-+ (BOOL)canStreamScreenshots
-{
-  return [FBScreenshot isNewScreenshotAPISupported];
 }
 
 - (void)didClientConnect:(GCDAsyncSocket *)newClient

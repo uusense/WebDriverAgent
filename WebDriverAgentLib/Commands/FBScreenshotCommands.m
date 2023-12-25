@@ -11,6 +11,7 @@
 
 #import <objc/runtime.h>
 #import <MobileCoreServices/MobileCoreServices.h>
+@import UniformTypeIdentifiers;
 
 #import "XCUIDevice+FBHelpers.h"
 #import "FBRoute.h"
@@ -101,7 +102,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
     if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"15.0")) {
       id screnshotRequest = [FBScreenshot screenshotRequestWithScreenID:[XCUIScreen.mainScreen displayID]
                                                                  rect:rect
-                                                                  uti:(__bridge id)kUTTypeJPEG
+                                                                  uti:UTTypeJPEG
                                                    compressionQuality:FBMaxCompressionQuality
                                                                 error:&error];
       if (nil == screnshotRequest) {
@@ -229,7 +230,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   NSError *error;
   NSData *screenshotData = [FBScreenshot takeInOriginalResolutionWithScreenID:[XCUIScreen.mainScreen displayID]
                                                            compressionQuality:screenshotCompressionQuality
-                                                                          uti:(__bridge id)kUTTypeJPEG
+                                                                          uti:UTTypeJPEG
                                                                       timeout:1.
                                                                         error:&error];
   if (nil == screenshotData) {

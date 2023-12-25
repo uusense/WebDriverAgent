@@ -44,7 +44,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (nullable id)screenshotRequestWithScreenID:(unsigned int)screenID
                                         rect:(struct CGRect)rect
-                                         uti:(NSString *)uti
+                                         uti:(UTType *)uti
                           compressionQuality:(CGFloat)compressionQuality
                                        error:(NSError **)error;
 

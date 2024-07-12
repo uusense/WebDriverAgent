@@ -56,7 +56,7 @@ static bool fb_isLocked;
 
 - (BOOL)fb_goToHomescreenWithError:(NSError **)error
 {
-  return [FBApplication fb_switchToSystemApplicationWithError:error];
+  return [XCUIApplication fb_switchToSystemApplicationWithError:error];
 }
 
 - (BOOL)fb_lockScreen:(NSError **)error
@@ -213,7 +213,7 @@ static bool fb_isLocked;
       continue;
     }
     NSString *interfaceName = [NSString stringWithUTF8String:temp_addr->ifa_name];
-    if(![interfaceName containsString:@"en"]) {
+    if(![interfaceName isEqualToString:@"en0"]) {
       temp_addr = temp_addr->ifa_next;
       continue;
     }

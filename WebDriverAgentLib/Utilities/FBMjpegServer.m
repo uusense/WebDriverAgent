@@ -14,7 +14,6 @@
 @import UniformTypeIdentifiers;
 
 #import "GCDAsyncSocket.h"
-#import "FBApplication.h"
 #import "FBConfiguration.h"
 #import "FBLogger.h"
 #import "FBScreenshot.h"

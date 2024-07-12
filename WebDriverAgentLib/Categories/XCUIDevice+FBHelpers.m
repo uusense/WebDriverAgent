@@ -56,7 +56,7 @@ static bool fb_isLocked;
 
 - (BOOL)fb_goToHomescreenWithError:(NSError **)error
 {
-  return [FBApplication fb_switchToSystemApplicationWithError:error];
+  return [XCUIApplication fb_switchToSystemApplicationWithError:error];
 }
 
 - (BOOL)fb_lockScreen:(NSError **)error
@@ -99,23 +99,6 @@ static bool fb_isLocked;
           } error:error];
 }
 
-- (BOOL)uu_unlockScreen:(NSError **)error
-{
-  [self pressButton:XCUIDeviceButtonHome];
-  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:FBHomeButtonCoolOffTime]];
-  if (SYSTEM_VERSION_LESS_THAN(@"10.0")) {
-    [[FBApplication fb_activeApplication] swipeRight];
-  } else {
-    [self pressButton:XCUIDeviceButtonHome];
-  }
-  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:FBHomeButtonCoolOffTime]];
-  return [[[[FBRunLoopSpinner new]
-            timeout:FBScreenLockTimeout]
-           timeoutErrorMessage:@"Timed out while waiting until the screen gets unlocked"]
-          spinUntilTrue:^BOOL{
-            return !fb_isLocked;
-          } error:error];
-}
 
 //- (NSData *)uu_screenshotWithSize:(CGRect)rect andQuality:(NSUInteger)q andError:(NSError*__autoreleasing*)error
 //{
@@ -213,7 +196,7 @@ static bool fb_isLocked;
       continue;
     }
     NSString *interfaceName = [NSString stringWithUTF8String:temp_addr->ifa_name];
-    if(![interfaceName containsString:@"en"]) {
+    if(![interfaceName isEqualToString:@"en0"]) {
       temp_addr = temp_addr->ifa_next;
       continue;
     }

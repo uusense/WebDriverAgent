@@ -16,7 +16,6 @@
 #import "XCUIDevice+FBHelpers.h"
 #import "FBRoute.h"
 #import "FBRouteRequest.h"
-#import "FBApplication.h"
 #import "FBMathUtils.h"
 #import "XCUIScreen.h"
 #import "DeviceInfoManager.h"
@@ -28,6 +27,8 @@
 #import "FBConfiguration.h"
 #import "FBErrorBuilder.h"
 #import "FBImageProcessor.h"
+#import "XCUIApplication+FBHelpers.h"
+#import "XCUIApplication.h"
 
 static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
 
@@ -189,7 +190,7 @@ static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
   CGRect screenRect = CGRectZero;
   
   if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
-    XCUIApplication *app = FBApplication.fb_activeApplication;
+    XCUIApplication *app = XCUIApplication.fb_systemApplication;
     CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
     if (version.doubleValue >= 11.0) {
       screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);

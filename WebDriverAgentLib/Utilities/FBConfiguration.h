@@ -60,10 +60,15 @@ extern NSString *const FBSnapshotMaxDepthKey;
 /* The maximum typing frequency for all typing activities */
 + (void)setMaxTypingFrequency:(NSUInteger)value;
 + (NSUInteger)maxTypingFrequency;
++ (NSUInteger)defaultTypingFrequency;
 
 /* Use singleton test manager proxy */
 + (void)setShouldUseSingletonTestManager:(BOOL)value;
 + (BOOL)shouldUseSingletonTestManager;
+
+/* Enforces WDA to verify the presense of system alerts while checking for an active app */
++ (void)setShouldRespectSystemAlerts:(BOOL)value;
++ (BOOL)shouldRespectSystemAlerts;
 
 /**
  * Extract switch value from arguments

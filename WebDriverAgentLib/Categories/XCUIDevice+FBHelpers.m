@@ -99,23 +99,6 @@ static bool fb_isLocked;
           } error:error];
 }
 
-- (BOOL)uu_unlockScreen:(NSError **)error
-{
-  [self pressButton:XCUIDeviceButtonHome];
-  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:FBHomeButtonCoolOffTime]];
-  if (SYSTEM_VERSION_LESS_THAN(@"10.0")) {
-    [[FBApplication fb_activeApplication] swipeRight];
-  } else {
-    [self pressButton:XCUIDeviceButtonHome];
-  }
-  [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:FBHomeButtonCoolOffTime]];
-  return [[[[FBRunLoopSpinner new]
-            timeout:FBScreenLockTimeout]
-           timeoutErrorMessage:@"Timed out while waiting until the screen gets unlocked"]
-          spinUntilTrue:^BOOL{
-            return !fb_isLocked;
-          } error:error];
-}
 
 //- (NSData *)uu_screenshotWithSize:(CGRect)rect andQuality:(NSUInteger)q andError:(NSError*__autoreleasing*)error
 //{

@@ -12,8 +12,8 @@
 
 #import "UUElementCommands.h"
 #import "FBExceptions.h"
+#import "XCUIApplication.h"
 
-#import "FBApplication.h"
 #import "FBKeyboard.h"
 #import "FBRoute.h"
 #import "FBRouteRequest.h"
@@ -21,7 +21,6 @@
 #import "FBElementCache.h"
 #import "FBErrorBuilder.h"
 #import "FBSession.h"
-#import "FBApplication.h"
 #import "FBMacros.h"
 #import "FBMathUtils.h"
 #import "NSPredicate+FBFormat.h"
@@ -397,11 +396,11 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uuBack:(FBRouteRequest *)request {
-  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
-  if (application.navigationBars.buttons.count > 0) {
-    [[application.navigationBars.buttons elementBoundByIndex:0] tap];
-    return FBResponseWithOK();
-  }
+//  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
+//  if (application.navigationBars.buttons.count > 0) {
+//    [[application.navigationBars.buttons elementBoundByIndex:0] tap];
+//    return FBResponseWithOK();
+//  }
   return FBResponseWithUnknownErrorFormat(@"Cannot back of the current page");
   
 }
@@ -413,26 +412,26 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)handleMonkeyCommand:(FBRouteRequest *)request {
-  @autoreleasepool {
-    FBApplication *app = request.session.activeApplication ?: [FBApplication fb_activeApplication];
-    if (nil != app) { }
-    XCUIApplication *application = [UUMonkeySingleton sharedInstance].application;
-    if (nil == application) {
-      [UUMonkeySingleton sharedInstance].application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
-      application = [UUMonkeySingleton sharedInstance].application;
-    }
-    NSInteger monkeyIterations = [request.arguments[@"monkeyIterations"] integerValue];
-    if ([UUMonkeySingleton sharedInstance].application == nil) {
-      return FBResponseWithUnknownErrorFormat(@"Cannot get the current application");
-    }
-    if (nil == [UUMonkeySingleton sharedInstance].monkey) {
-      UUMonkey *monkey = [[UUMonkey alloc] initWithFrame:application.frame];
-      [monkey addDefaultXCTestPrivateActions];
-      [UUMonkeySingleton sharedInstance].monkey = monkey;
-    }
-    [UUMonkeySingleton sharedInstance].monkey.application = (XCUIApplication *)application;
-    [[UUMonkeySingleton sharedInstance].monkey monkeyAroundWithIterations:monkeyIterations];
-  }
+//  @autoreleasepool {
+//    FBApplication *app = request.session.activeApplication ?: [FBApplication fb_activeApplication];
+//    if (nil != app) { }
+//    XCUIApplication *application = [UUMonkeySingleton sharedInstance].application;
+//    if (nil == application) {
+//      [UUMonkeySingleton sharedInstance].application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
+//      application = [UUMonkeySingleton sharedInstance].application;
+//    }
+//    NSInteger monkeyIterations = [request.arguments[@"monkeyIterations"] integerValue];
+//    if ([UUMonkeySingleton sharedInstance].application == nil) {
+//      return FBResponseWithUnknownErrorFormat(@"Cannot get the current application");
+//    }
+//    if (nil == [UUMonkeySingleton sharedInstance].monkey) {
+//      UUMonkey *monkey = [[UUMonkey alloc] initWithFrame:application.frame];
+//      [monkey addDefaultXCTestPrivateActions];
+//      [UUMonkeySingleton sharedInstance].monkey = monkey;
+//    }
+//    [UUMonkeySingleton sharedInstance].monkey.application = (XCUIApplication *)application;
+//    [[UUMonkeySingleton sharedInstance].monkey monkeyAroundWithIterations:monkeyIterations];
+//  }
   return FBResponseWithOK();
 }
 
@@ -467,7 +466,10 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   }
   NSUInteger frequency = 60;
   NSError *error = nil;
-  if (![FBKeyboard typeText:text frequency:frequency error:&error]) {
+  
+  FBTypeText(text,frequency,&error);
+
+  if (error != nil) {
     return FBResponseWithUnknownErrorFormat(@"Failed to input");
   }
     return FBResponseWithOK();

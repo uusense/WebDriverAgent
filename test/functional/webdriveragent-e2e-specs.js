@@ -1,4 +1,4 @@
-import Simctl from 'node-simctl';
+import { Simctl } from 'node-simctl';
 import { getVersion } from 'appium-xcode';
 import { getSimulator } from 'appium-ios-simulator';
 import { killAllSimulators, shutdownSimulator } from './helpers/simulator';
@@ -8,7 +8,7 @@ import { retryInterval } from 'asyncbox';
 import { WebDriverAgent } from '../../lib/webdriveragent';
 import axios from 'axios';
 
-const MOCHA_TIMEOUT_MS = 60 * 1000 * 4;
+const MOCHA_TIMEOUT_MS = 60 * 1000 * 5;
 
 const SIM_DEVICE_NAME = 'webDriverAgentTest';
 const SIM_STARTUP_TIMEOUT_MS = MOCHA_TIMEOUT_MS;
@@ -59,6 +59,15 @@ describe('WebDriverAgent', function () {
         PLATFORM_VERSION
       );
       device = await getSimulator(simctl.udid);
+
+      // Prebuild WDA
+      const wda = new WebDriverAgent(xcodeVersion, {
+        iosSdkVersion: PLATFORM_VERSION,
+        platformVersion: PLATFORM_VERSION,
+        showXcodeLog: true,
+        device,
+      });
+      await wda.xcodebuild.start(true);
     });
 
     after(async function () {
@@ -80,7 +89,7 @@ describe('WebDriverAgent', function () {
           await retryInterval(5, 1000, async function () {
             await shutdownSimulator(device);
           });
-        } catch (ign) {}
+        } catch {}
       });
 
       it('should launch agent on a sim', async function () {
@@ -97,7 +106,7 @@ describe('WebDriverAgent', function () {
 
         const agent = new WebDriverAgent(xcodeVersion, getStartOpts(device));
 
-        agent.xcodebuild.createSubProcess = async function () { // eslint-disable-line require-await
+        agent.xcodebuild.createSubProcess = async function () {
           let args = [
             '-workspace',
             `${this.agentPath}dfgs`,

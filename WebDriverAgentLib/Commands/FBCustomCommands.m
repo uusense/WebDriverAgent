@@ -10,11 +10,7 @@
 #import "FBCustomCommands.h"
 
 #import <XCTest/XCUIDevice.h>
-#import <CoreTelephony/CTCarrier.h>
-#import <CoreTelephony/CTTelephonyNetworkInfo.h>
 #import <CoreLocation/CoreLocation.h>
-
-#import "Reachability.h"
 
 #import "FBConfiguration.h"
 #import "FBKeyboard.h"
@@ -68,10 +64,6 @@
     [[FBRoute POST:@"/wda/performIoHidEvent"] respondWithTarget:self action:@selector(handlePeformIOHIDEvent:)],
     [[FBRoute POST:@"/wda/expectNotification"] respondWithTarget:self action:@selector(handleExpectNotification:)],
     [[FBRoute POST:@"/wda/siri/activate"] respondWithTarget:self action:@selector(handleActivateSiri:)],
-    [[FBRoute GET:@"/wda/netType"].withoutSession respondWithTarget:self action:@selector(handleGetNetType:)],
-    [[FBRoute GET:@"/wda/netBrand"].withoutSession respondWithTarget:self action:@selector(handleGetNetBrand:)],
-    [[FBRoute POST:@"/wda/uuGet"].withoutSession respondWithTarget:self action:@selector(handleUuGet:)],
-    [[FBRoute POST:@"/wda/uuPost"].withoutSession respondWithTarget:self action:@selector(handleUuPost:)],
     [[FBRoute POST:@"/wda/apps/launchUnattached"].withoutSession respondWithTarget:self action:@selector(handleLaunchUnattachedApp:)],
     [[FBRoute GET:@"/wda/device/info"] respondWithTarget:self action:@selector(handleGetDeviceInfo:)],
     [[FBRoute POST:@"/wda/resetAppAuth"] respondWithTarget:self action:@selector(handleResetAppAuth:)],
@@ -524,152 +516,6 @@
   return [localTimeZone name];
 }
 
-+ (id<FBResponsePayload>)handleGetNetType:(FBRouteRequest *)request
-{
-  NSString *netconnType = @"";
-  Reachability *reach = [Reachability reachabilityWithHostName:@"www.apple.com"];
-  
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcovered-switch-default"
-  switch ([reach currentReachabilityStatus]) {
-    case NotReachable: {
-      netconnType = @"no network";
-      }
-    break;
-    case ReachableViaWiFi: {
-      netconnType = @"Wifi";
-      }
-    break;
-    case ReachableViaWWAN: {
-      CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
-      NSString *currentStatus = info.currentRadioAccessTechnology;
-      if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyGPRS"]) {
-        netconnType = @"GPRS";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyEdge"]) {
-        netconnType = @"2.75G EDGE";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyWCDMA"]){
-        netconnType = @"3G";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyHSDPA"]){
-        netconnType = @"3.5G HSDPA";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyHSUPA"]){
-        netconnType = @"3.5G HSUPA";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMA1x"]){
-        netconnType = @"2G";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORev0"]){
-        netconnType = @"3G";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORevA"]){
-        netconnType = @"3G";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORevB"]){
-        netconnType = @"3G";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyeHRPD"]){
-        netconnType = @"HRPD";
-      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyLTE"]){
-        netconnType = @"4G";
-      }else if (@available(iOS 14.0, *)) {
-          if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyNRNSA"]){
-              netconnType = @"5G NSA";
-          } else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyNR"]){
-              netconnType = @"5G";
-          }
-        }
-      }
-      break;
-    default:
-      break;
-  }
-  NSLog(@"netconnType is %@", netconnType);
-#pragma clang diagnostic pop
-  return FBResponseWithObject(netconnType);
-}
-
-+ (id<FBResponsePayload>)handleGetNetBrand:(FBRouteRequest *)request
-{
-  CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
-  CTCarrier *carinfo = info.subscriberCellularProvider;
-  return FBResponseWithObject(@{
-            @"Name": carinfo.carrierName?:@"",
-            @"MNC": carinfo.mobileNetworkCode?:@"",
-            @"ISOCountryCode": carinfo.isoCountryCode?:@"",
-            @"MCC": carinfo.mobileCountryCode?:@"",});
-}
-
-+ (id<FBResponsePayload>)handleUuGet:(FBRouteRequest *)request
-{
-  NSString *urlStr     = request.arguments[@"url"];
-  NSTimeInterval timeOut = [request.arguments[@"timeout"] doubleValue];
-  timeOut = (timeOut <= 0 ) ? 1 : timeOut;
-  NSURL *url = [NSURL URLWithString:urlStr];
-  NSURLRequest *req = [NSURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:timeOut];
-  NSURLSession *session = [NSURLSession sharedSession];
-  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-  __block NSError *errorInfo = nil;
-  __block NSString *ret = nil;
-  NSURLSessionDataTask *dataTask = [session dataTaskWithRequest:req completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-    if (error) {
-      errorInfo = error;
-    }
-    @try {
-      if (data) {
-        NSData *dataTmp = data;
-        ret = [[NSString alloc] initWithData:dataTmp encoding:NSUTF8StringEncoding];
-      }
-    } @catch (NSException *exception) {
-      NSLog(@"%@", [exception description]);
-    }
-    dispatch_semaphore_signal(semaphore);
-  }];
-  [dataTask resume];
-  dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeOut * NSEC_PER_SEC)));
-  if (errorInfo) {
-    return FBResponseWithUnknownError(errorInfo);
-  } else {
-    return FBResponseWithObject(@{@"response": ret ?: @""});
-  }
-}
-
-+ (id<FBResponsePayload>)handleUuPost:(FBRouteRequest *)request
-{
-  NSString *urlStr     = request.arguments[@"url"];
-  NSTimeInterval timeOut = [request.arguments[@"timeout"] doubleValue];
-  timeOut = (timeOut <= 0 ) ? 1 : timeOut;
-  NSDictionary *params = request.arguments[@"params"];
-  NSURL *url = [NSURL URLWithString:urlStr];
-  NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:timeOut];
-  req.HTTPMethod = @"POST";
-  [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-  NSError *paramError = nil;
-  if (params) {
-    NSData *bodyData = [NSJSONSerialization dataWithJSONObject:params options:NSJSONWritingPrettyPrinted error:&paramError];
-    if(nil == paramError && nil != bodyData)
-      [req setHTTPBody:bodyData];
-  }
-  NSURLSession *session = [NSURLSession sharedSession];
-  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-  __block NSError *errorInfo = nil;
-  __block NSString *ret = nil;
-  NSURLSessionDataTask *dataTask = [session dataTaskWithRequest:req completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-    if (error) {
-      errorInfo = error;
-    }
-    @try {
-      if (data) {
-        NSData *dataTmp = data;
-        ret = [[NSString alloc] initWithData:dataTmp encoding:NSUTF8StringEncoding];
-      }
-    } @catch (NSException *exception) {
-      NSLog(@"%@", [exception description]);
-    }
-    dispatch_semaphore_signal(semaphore);
-  }];
-  [dataTask resume];
-  dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeOut * NSEC_PER_SEC)));
-  if (errorInfo) {
-    return FBResponseWithUnknownError(errorInfo);
-  } else {
-    return FBResponseWithObject(@{@"response": ret ?: @""});
-  }
-}
-
 #if !TARGET_OS_TV // tvOS does not provide relevant APIs
 + (id<FBResponsePayload>)handleGetSimulatedLocation:(FBRouteRequest *)request
 {
@@ -721,7 +567,8 @@
   FBElementCache *elementCache = request.session.elementCache;
   BOOL hasElement = ![request.parameters[@"uuid"] isEqual:@"0"];
   XCUIElement *destination = hasElement
-    ? [elementCache elementForUUID:(NSString *)request.parameters[@"uuid"]]
+    ? [elementCache elementForUUID:(NSString *)request.parameters[@"uuid"]
+                    checkStaleness:YES]
     : request.session.activeApplication;
   id keys = request.arguments[@"keys"];
 

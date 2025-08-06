@@ -41,7 +41,6 @@ NS_ASSUME_NONNULL_BEGIN
                                                     error:(NSError **)error;
 
 
-
 + (nullable id)screenshotRequestWithScreenID:(unsigned int)screenID
                                         rect:(struct CGRect)rect
                                          uti:(UTType *)uti

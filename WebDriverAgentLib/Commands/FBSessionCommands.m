@@ -9,6 +9,8 @@
 
 #import "FBSessionCommands.h"
 
+#import <sys/utsname.h>
+
 #import "FBCapabilities.h"
 #import "FBConfiguration.h"
 #import "FBExceptions.h"
@@ -25,8 +27,6 @@
 #import "XCUIDevice.h"
 #import "XCUIDevice+FBHealthCheck.h"
 #import "XCUIDevice+FBHelpers.h"
-#import <sys/utsname.h>
-#import "UUMonkeySingleton.h"
 #import "XCUIApplicationProcessDelay.h"
 
 
@@ -218,10 +218,6 @@
   } else {
     [FBSession initWithApplication:app];
   }
-  
-  /* record the latest started application */
-  [UUMonkeySingleton sharedInstance].application = nil;
-  [UUMonkeySingleton sharedInstance].application = app;
 
   if (nil != capabilities[FB_CAP_USE_NATIVE_CACHING_STRATEGY]) {
     FBSession.activeSession.useNativeCachingStrategy = [capabilities[FB_CAP_USE_NATIVE_CACHING_STRATEGY] boolValue];
@@ -232,8 +228,7 @@
 
 + (id<FBResponsePayload>)handleSessionAppLaunch:(FBRouteRequest *)request
 {
-  
- [request.session launchApplicationWithBundleId:(id)request.arguments[@"bundleId"]
+  [request.session launchApplicationWithBundleId:(id)request.arguments[@"bundleId"]
                          shouldWaitForQuiescence:request.arguments[@"shouldWaitForQuiescence"]
                                        arguments:request.arguments[@"arguments"]
                                      environment:request.arguments[@"environment"]];
@@ -291,6 +286,11 @@
   if (nil != upgradeTimestamp && upgradeTimestamp.length > 0) {
     [buildInfo setObject:upgradeTimestamp forKey:@"upgradedAt"];
   }
+  NSDictionary *infoDict = [[NSBundle bundleForClass:self.class] infoDictionary];
+  NSString *version = [infoDict objectForKey:@"CFBundleShortVersionString"];
+  if (nil != version) {
+    [buildInfo setObject:version forKey:@"version"];
+  }
   
   struct utsname systemInfo;
   
@@ -298,19 +298,6 @@
   
   NSString* code = [NSString stringWithCString:systemInfo.machine
                                       encoding:NSUTF8StringEncoding];
-
-  // Returns locale like ja_EN and zh-Hant_US. The format depends on OS
-  // Developers should use this locale by default
-  // https://developer.apple.com/documentation/foundation/nslocale/1414388-autoupdatingcurrentlocale
-  NSString *currentLocale = [[NSLocale autoupdatingCurrentLocale] localeIdentifier];
-  // TZ database Time Zones format like "US/Pacific"
-  NSString *timeZone = [[NSTimeZone localTimeZone] name];
-
-  NSDictionary *infoDict = [[NSBundle bundleForClass:self.class] infoDictionary];
-  NSString *version = [infoDict objectForKey:@"CFBundleShortVersionString"];
-  if (nil != version) {
-    [buildInfo setObject:version forKey:@"version"];
-  }
 
   return FBResponseWithObject(
     @{
@@ -360,7 +347,6 @@
       FB_SETTING_SCREENSHOT_QUALITY: @([FBConfiguration screenshotQuality]),
       FB_SETTING_KEYBOARD_AUTOCORRECTION: @([FBConfiguration keyboardAutocorrection]),
       FB_SETTING_KEYBOARD_PREDICTION: @([FBConfiguration keyboardPrediction]),
-      FB_SETTING_CUSTOM_SNAPSHOT_TIMEOUT: @([FBConfiguration customSnapshotTimeout]),
       FB_SETTING_SNAPSHOT_MAX_DEPTH: @([FBConfiguration snapshotMaxDepth]),
       FB_SETTING_USE_FIRST_MATCH: @([FBConfiguration useFirstMatch]),
       FB_SETTING_WAIT_FOR_IDLE_TIMEOUT: @([FBConfiguration waitForIdleTimeout]),
@@ -418,13 +404,6 @@
   }
   if (nil != [settings objectForKey:FB_SETTING_RESPECT_SYSTEM_ALERTS]) {
     [FBConfiguration setShouldRespectSystemAlerts:[[settings objectForKey:FB_SETTING_RESPECT_SYSTEM_ALERTS] boolValue]];
-  }
-  // SNAPSHOT_TIMEOUT setting is deprecated. Please use CUSTOM_SNAPSHOT_TIMEOUT instead
-  if (nil != [settings objectForKey:FB_SETTING_SNAPSHOT_TIMEOUT]) {
-    [FBConfiguration setCustomSnapshotTimeout:[[settings objectForKey:FB_SETTING_SNAPSHOT_TIMEOUT] doubleValue]];
-  }
-  if (nil != [settings objectForKey:FB_SETTING_CUSTOM_SNAPSHOT_TIMEOUT]) {
-    [FBConfiguration setCustomSnapshotTimeout:[[settings objectForKey:FB_SETTING_CUSTOM_SNAPSHOT_TIMEOUT] doubleValue]];
   }
   if (nil != [settings objectForKey:FB_SETTING_SNAPSHOT_MAX_DEPTH]) {
     [FBConfiguration setSnapshotMaxDepth:[[settings objectForKey:FB_SETTING_SNAPSHOT_MAX_DEPTH] intValue]];

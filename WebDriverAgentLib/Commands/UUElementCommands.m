@@ -9,6 +9,12 @@
 #import <sys/utsname.h>
 #import <objc/runtime.h>
 #import <SystemConfiguration/CaptiveNetwork.h>
+#import <CoreTelephony/CTTelephonyNetworkInfo.h>
+#import <CoreTelephony/CTCarrier.h>
+#import <sys/sysctl.h>
+#import <mach/mach.h>
+#import <ReplayKit/ReplayKit.h>
+#import <MobileCoreServices/MobileCoreServices.h>
 
 #import "UUElementCommands.h"
 #import "FBExceptions.h"
@@ -60,12 +66,24 @@
 #import "STDPingServices.h"
 #import "BatteryInfoManager.h"
 
-#import<sys/sysctl.h>
-#import<mach/mach.h>
+#import "Reachability.h"
 
-#import <ReplayKit/ReplayKit.h>
+#import "FBScreenshot.h"
+#import "XCUIScreen.h"
+#import "FBConfiguration.h"
+#import "FBImageProcessor.h"
+#import "FBLogger.h"
+#import "FBResponsePayload.h"
+
+#import "FBXMLGenerationOptions.h"
+
+@import UniformTypeIdentifiers;
 
 static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
+static const NSTimeInterval SCREENSHOT_TIMEOUT = 0.5;
+static NSString *const SOURCE_FORMAT_XML = @"xml";
+static NSString *const SOURCE_FORMAT_JSON = @"json";
+static NSString *const SOURCE_FORMAT_DESCRIPTION = @"description";
 
 @interface UUElementCommands ()
 
@@ -78,11 +96,15 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 + (NSArray *)routes {
   return
   @[
-    [[FBRoute POST:@"/uusense/tap"].withoutSession respondWithTarget:self action:@selector(uuHandleTap:)],
+    [[FBRoute POST:@"/uusense/tap"].withoutSession respondWithTarget:self action:@selector(uuHandleTapCoordinate:)],
+    [[FBRoute POST:@"/uusense/monkey/tap"].withoutSession respondWithTarget:self action:@selector(uuHandleTap:)],
     [[FBRoute POST:@"/uusense/forcetouch"].withoutSession respondWithTarget:self action:@selector(uuHandleForceTouch:)],
     [[FBRoute POST:@"/uusense/touchAndHold"].withoutSession respondWithTarget:self action:@selector(uuHandleTouchAndHoldCoordinate:)],
+    [[FBRoute POST:@"/uusense/monkey/touchAndHold"].withoutSession respondWithTarget:self action:@selector(uuHandleTouchAndHold:)],
     [[FBRoute POST:@"/uusense/doubleTap"] respondWithTarget:self action:@selector(uuHandleDoubleTapCoordinate:)],
     [[FBRoute POST:@"/uusense/dragfromtoforduration"].withoutSession respondWithTarget:self action:@selector(uuHandleDragCoordinate:)],
+    [[FBRoute POST:@"/uusense/monkey/dragfromtoforduration"].withoutSession respondWithTarget:self action:@selector(uuHandleDrag:)],
+//    [[FBRoute POST:@"/uusense/dragfromtofordurationtest"].withoutSession respondWithTarget:self action:@selector(uuHandleDragCoordinate:)],
     [[FBRoute POST:@"/uusense/back"] respondWithTarget:self action:@selector(uuBack:)],
     
     [[FBRoute GET:@"/uusense/ssid"].withoutSession respondWithTarget:self action:@selector(uuGetSSID:)],
@@ -105,6 +127,19 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     [[FBRoute POST:@"/uusense/unlockWithOutCheck"].withoutSession respondWithTarget:self action:@selector(handleUnlock:)],
     
     [[FBRoute POST:@"/uusense/ping"].withoutSession respondWithTarget:self action:@selector(handlePingCommand:)],
+    
+    [[FBRoute GET:@"/wda/netType"].withoutSession respondWithTarget:self action:@selector(handleGetNetType:)],
+    [[FBRoute GET:@"/wda/netBrand"].withoutSession respondWithTarget:self action:@selector(handleGetNetBrand:)],
+    [[FBRoute POST:@"/wda/uuGet"].withoutSession respondWithTarget:self action:@selector(handleUuGet:)],
+    [[FBRoute POST:@"/wda/uuPost"].withoutSession respondWithTarget:self action:@selector(handleUuPost:)],
+    
+    [[FBRoute GET:@"/uusense/screenshot"].withoutSession respondWithTarget:self action:@selector(uu_handleGetScreenshot:)],
+    [[FBRoute GET:@"/uusense/screenshot"] respondWithTarget:self action:@selector(uu_handleGetScreenshot:)],
+    [[FBRoute GET:@"/uusense/scalingcreenshot"].withoutSession respondWithTarget:self action:@selector(uu_handleScalingScreenshot:)],
+    [[FBRoute POST:@"/uusense/screenshot"].withoutSession respondWithTarget:self action:@selector(uu_handleASScreenshot:)],
+    
+    [[FBRoute POST:@"/url"].withoutSession respondWithTarget:self action:@selector(uu_handleOpenURL:)],
+    
   ];
 }
 
@@ -115,7 +150,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uu_handleDoubleMove:(FBRouteRequest *)request {
-
+  
   NSInteger aX1 = [request.arguments[@"aX1"] integerValue];
   NSInteger aY1 = [request.arguments[@"aY1"] integerValue];
   NSInteger aX2 = [request.arguments[@"aX2"] integerValue];
@@ -161,34 +196,34 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uu_handleMove:(FBRouteRequest *)request {
-
+  
   NSArray *pointsArray    = request.arguments[@"points"];
   NSTimeInterval duration = [request.arguments[@"duration"] doubleValue];
-//  CGFloat velocity        = [request.arguments[@"velocity"] floatValue];
+  //  CGFloat velocity        = [request.arguments[@"velocity"] floatValue];
   double dragTime         = 0.2;
   
   if ((nil == pointsArray) || ([pointsArray count] <= 0)) {
     return FBResponseWithUnknownErrorFormat(@"Points are null");
   }
-
+  
   __block BOOL didSucceed;
   [FBRunLoopSpinner spinUntilCompletion:^(void(^completion)(void)){
     XCEventGeneratorHandler handlerBlock = ^(XCSynthesizedEventRecord *record, NSError *commandError) {
       didSucceed = (commandError == nil);
       completion();
     };
-
+    
     NSDictionary *startPoint = pointsArray.firstObject;
     CGPoint hitPoint = CGPointMake([startPoint[@"x"] intValue], [startPoint[@"y"] intValue]);
     XCPointerEventPath *eventPath = [[XCPointerEventPath alloc] initForTouchAtPoint:hitPoint offset:duration];
-
+    
     for (NSUInteger i = 1; i < [pointsArray count]; i++) {
-//      NSDictionary * sPoint = pointsArray[i - 1];
+      //      NSDictionary * sPoint = pointsArray[i - 1];
       NSDictionary * ePoint = pointsArray[i];
-//      CGFloat deltaX        = [ePoint[@"x"] intValue] - [sPoint[@"x"] intValue];
-//      CGFloat deltaY        = [ePoint[@"y"] intValue] - [sPoint[@"y"] intValue];
-//      double distance       = sqrt(deltaX*deltaX + deltaY*deltaY);
-//      double dragTime       = distance / velocity;
+      //      CGFloat deltaX        = [ePoint[@"x"] intValue] - [sPoint[@"x"] intValue];
+      //      CGFloat deltaY        = [ePoint[@"y"] intValue] - [sPoint[@"y"] intValue];
+      //      double distance       = sqrt(deltaX*deltaX + deltaY*deltaY);
+      //      double dragTime       = distance / velocity;
       
       CGPoint endPoint = CGPointMake([ePoint[@"x"] intValue], [ePoint[@"y"] intValue]);
       [eventPath moveToPoint:endPoint atOffset:duration + (dragTime * i)];
@@ -220,7 +255,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   double freeMem           = vm_page_size *vmStats.free_count;
   int64_t freeDisk         = [[DeviceInfoManager sharedManager] getFreeDiskSpace];
   NSString *networkTypeStr = [[DeviceInfoManager sharedManager] getNettype];
-
+  
   NSString *totalMemStr = [NSString stringWithFormat:@"%.2f", totalMem/1024.0/1024.0];
   NSString *freeMemStr  = [NSString stringWithFormat:@"%.2f", freeMem/1024.0/1024.0];
   NSString *freeDiskStr = [NSString stringWithFormat:@"%.2f", freeDisk/1024.0/1024.0];
@@ -253,6 +288,31 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uuHandleTouchAndHoldCoordinate:(FBRouteRequest *)request {
+  
+  NSError *error;
+  NSNumber *x = request.arguments[@"x"];
+  NSNumber *y = request.arguments[@"y"];
+
+  if ((nil == x && nil != y) || (nil != x && nil == y)) {
+    [[[FBErrorBuilder alloc]
+      withDescription:@"Both x and y coordinates must be provided"]
+     buildError:&error];
+    return FBResponseWithUnknownError(error);
+  }
+  
+  XCUIApplication *application = request.session.activeApplication ?: XCUIApplication.fb_activeApplication;
+  
+  id target = [self.class uuGestureCoordinateWithOffset:CGVectorMake(x.doubleValue, y.doubleValue)
+                                        element:application];
+  if (nil == target) {
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:error.localizedDescription
+                                                                       traceback:nil]);
+  }
+  [target pressForDuration:[request.arguments[@"duration"] doubleValue]];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)uuHandleTouchAndHold:(FBRouteRequest *)request {
   CGPoint touchPoint        = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
   double duration           = [request.arguments[@"duration"] doubleValue];
   
@@ -272,7 +332,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   return FBResponseWithOK();
 }
 
-+ (id<FBResponsePayload>)uuHandleDragCoordinate:(FBRouteRequest *)request {
++ (id<FBResponsePayload>)uuHandleDrag:(FBRouteRequest *)request {
   CGPoint startPoint      = CGPointMake((CGFloat)[request.arguments[@"fromX"] doubleValue], (CGFloat)[request.arguments[@"fromY"] doubleValue]);
   CGPoint endPoint        = CGPointMake((CGFloat)[request.arguments[@"toX"] doubleValue], (CGFloat)[request.arguments[@"toY"] doubleValue]);
   NSTimeInterval duration = [request.arguments[@"duration"] doubleValue];
@@ -284,7 +344,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   CGFloat deltaY            = endPoint.y - startPoint.y;
   double distance           = sqrt(deltaX*deltaX + deltaY*deltaY);
   double dragTime           = distance / velocity;
-
+  
   __block BOOL didSucceed;
   [FBRunLoopSpinner spinUntilCompletion:^(void(^completion)(void)){
     XCEventGeneratorHandler handlerBlock = ^(XCSynthesizedEventRecord *record, NSError *commandError) {
@@ -295,10 +355,32 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
     [eventPath moveToPoint:endPoint atOffset:duration + dragTime];
     [eventPath liftUpAtOffset:duration + dragTime];
     XCSynthesizedEventRecord *event = [[XCSynthesizedEventRecord alloc] initWithName:@"drag" interfaceOrientation:UIInterfaceOrientationPortrait];
-  
+    
     [event addPointerEventPath:eventPath];
     [UUElementCommands uuSynthesizeEvent:event andHandle:handlerBlock];
   }];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)uuHandleDragCoordinate:(FBRouteRequest *)request {
+  XCUIApplication *application = request.session.activeApplication ?: XCUIApplication.fb_activeApplication;
+  CGVector startOffset = CGVectorMake([request.arguments[@"fromX"] doubleValue],
+                                      [request.arguments[@"fromY"] doubleValue]);
+  XCUICoordinate *startCoordinate = [self.class uuGestureCoordinateWithOffset:startOffset element:application];
+  CGVector endOffset = CGVectorMake([request.arguments[@"toX"] doubleValue],
+                                    [request.arguments[@"toY"] doubleValue]);
+  XCUICoordinate *endCoordinate = [self.class uuGestureCoordinateWithOffset:endOffset element:application];
+  NSTimeInterval duration = [request.arguments[@"duration"] doubleValue];
+  [startCoordinate pressForDuration:duration thenDragToCoordinate:endCoordinate];
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)uuHandleTapCoordinate:(FBRouteRequest *)request {
+  XCUIApplication *application = request.session.activeApplication ?: XCUIApplication.fb_activeApplication;
+  CGPoint tapPoint = CGPointMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue]);
+  XCUICoordinate *doubleTapCoordinate = [self.class uuGestureCoordinateWithCoordinate:tapPoint application:application shouldApplyOrientationWorkaround:YES];
+  [doubleTapCoordinate tap];
+  
   return FBResponseWithOK();
 }
 
@@ -396,11 +478,11 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 + (id<FBResponsePayload>)uuBack:(FBRouteRequest *)request {
-//  FBApplication *application = request.session.activeApplication ?: [FBApplication fb_activeApplication];
-//  if (application.navigationBars.buttons.count > 0) {
-//    [[application.navigationBars.buttons elementBoundByIndex:0] tap];
-//    return FBResponseWithOK();
-//  }
+  XCUIApplication *application = request.session.activeApplication ?: XCUIApplication.fb_activeApplication;
+  if (application.navigationBars.buttons.count > 0) {
+    [[application.navigationBars.buttons elementBoundByIndex:0] tap];
+    return FBResponseWithOK();
+  }
   return FBResponseWithUnknownErrorFormat(@"Cannot back of the current page");
   
 }
@@ -525,6 +607,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 }
 
 
+
 #pragma mark - Helpers
 
 /**
@@ -564,6 +647,513 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
   }
   return [[(NSDictionary*)info objectForKey:@"SSID"] lowercaseString];
 }
+
++ (id<FBResponsePayload>)handleGetNetType:(FBRouteRequest *)request
+{
+  NSString *netconnType = @"";
+  Reachability *reach = [Reachability reachabilityWithHostName:@"www.apple.com"];
+  
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcovered-switch-default"
+  switch ([reach currentReachabilityStatus]) {
+    case NotReachable: {
+      netconnType = @"no network";
+      }
+    break;
+    case ReachableViaWiFi: {
+      netconnType = @"Wifi";
+      }
+    break;
+    case ReachableViaWWAN: {
+      CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
+      NSString *currentStatus = info.currentRadioAccessTechnology;
+      if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyGPRS"]) {
+        netconnType = @"GPRS";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyEdge"]) {
+        netconnType = @"2.75G EDGE";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyWCDMA"]){
+        netconnType = @"3G";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyHSDPA"]){
+        netconnType = @"3.5G HSDPA";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyHSUPA"]){
+        netconnType = @"3.5G HSUPA";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMA1x"]){
+        netconnType = @"2G";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORev0"]){
+        netconnType = @"3G";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORevA"]){
+        netconnType = @"3G";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyCDMAEVDORevB"]){
+        netconnType = @"3G";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyeHRPD"]){
+        netconnType = @"HRPD";
+      }else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyLTE"]){
+        netconnType = @"4G";
+      }else if (@available(iOS 14.0, *)) {
+          if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyNRNSA"]){
+              netconnType = @"5G NSA";
+          } else if ([currentStatus isEqualToString:@"CTRadioAccessTechnologyNR"]){
+              netconnType = @"5G";
+          }
+        }
+      }
+      break;
+    default:
+      break;
+  }
+  NSLog(@"netconnType is %@", netconnType);
+#pragma clang diagnostic pop
+  return FBResponseWithObject(netconnType);
+}
+
++ (id<FBResponsePayload>)handleGetNetBrand:(FBRouteRequest *)request
+{
+  CTTelephonyNetworkInfo *info = [[CTTelephonyNetworkInfo alloc] init];
+  CTCarrier *carinfo = info.subscriberCellularProvider;
+  return FBResponseWithObject(@{
+            @"Name": carinfo.carrierName?:@"",
+            @"MNC": carinfo.mobileNetworkCode?:@"",
+            @"ISOCountryCode": carinfo.isoCountryCode?:@"",
+            @"MCC": carinfo.mobileCountryCode?:@"",});
+}
+
++ (id<FBResponsePayload>)handleUuGet:(FBRouteRequest *)request
+{
+  NSString *urlStr     = request.arguments[@"url"];
+  NSTimeInterval timeOut = [request.arguments[@"timeout"] doubleValue];
+  timeOut = (timeOut <= 0 ) ? 1 : timeOut;
+  NSURL *url = [NSURL URLWithString:urlStr];
+  NSURLRequest *req = [NSURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:timeOut];
+  NSURLSession *session = [NSURLSession sharedSession];
+  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+  __block NSError *errorInfo = nil;
+  __block NSString *ret = nil;
+  NSURLSessionDataTask *dataTask = [session dataTaskWithRequest:req completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+    if (error) {
+      errorInfo = error;
+    }
+    @try {
+      if (data) {
+        NSData *dataTmp = data;
+        ret = [[NSString alloc] initWithData:dataTmp encoding:NSUTF8StringEncoding];
+      }
+    } @catch (NSException *exception) {
+      NSLog(@"%@", [exception description]);
+    }
+    dispatch_semaphore_signal(semaphore);
+  }];
+  [dataTask resume];
+  dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeOut * NSEC_PER_SEC)));
+  if (errorInfo) {
+    return FBResponseWithUnknownError(errorInfo);
+  } else {
+    return FBResponseWithObject(@{@"response": ret ?: @""});
+  }
+}
+
++ (id<FBResponsePayload>)handleUuPost:(FBRouteRequest *)request
+{
+  NSString *urlStr     = request.arguments[@"url"];
+  NSTimeInterval timeOut = [request.arguments[@"timeout"] doubleValue];
+  timeOut = (timeOut <= 0 ) ? 1 : timeOut;
+  NSDictionary *params = request.arguments[@"params"];
+  NSURL *url = [NSURL URLWithString:urlStr];
+  NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:timeOut];
+  req.HTTPMethod = @"POST";
+  [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+  NSError *paramError = nil;
+  if (params) {
+    NSData *bodyData = [NSJSONSerialization dataWithJSONObject:params options:NSJSONWritingPrettyPrinted error:&paramError];
+    if(nil == paramError && nil != bodyData)
+      [req setHTTPBody:bodyData];
+  }
+  NSURLSession *session = [NSURLSession sharedSession];
+  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+  __block NSError *errorInfo = nil;
+  __block NSString *ret = nil;
+  NSURLSessionDataTask *dataTask = [session dataTaskWithRequest:req completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+    if (error) {
+      errorInfo = error;
+    }
+    @try {
+      if (data) {
+        NSData *dataTmp = data;
+        ret = [[NSString alloc] initWithData:dataTmp encoding:NSUTF8StringEncoding];
+      }
+    } @catch (NSException *exception) {
+      NSLog(@"%@", [exception description]);
+    }
+    dispatch_semaphore_signal(semaphore);
+  }];
+  [dataTask resume];
+  dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeOut * NSEC_PER_SEC)));
+  if (errorInfo) {
+    return FBResponseWithUnknownError(errorInfo);
+  } else {
+    return FBResponseWithObject(@{@"response": ret ?: @""});
+  }
+}
+
+
++ (id<FBResponsePayload>)uu_handleGetScreenshot:(FBRouteRequest *)request
+{
+  NSError *error;
+  NSData *screenshotData = [[XCUIDevice sharedDevice] fb_screenshotWithError:&error];
+  if (nil == screenshotData) {
+    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
+  }
+  if ( [[UIDevice currentDevice].systemVersion doubleValue] <= 11 ) {
+    return UUResponseWithPNG(screenshotData);
+  } else {
+    return UUResponseWithJPG(screenshotData);
+  }
+}
+
++ (id<FBResponsePayload>)uu_handleASScreenshot:(FBRouteRequest *)request
+{
+  NSError *error;
+  CGRect rect = CGRectZero;
+  NSString *version = [UIDevice currentDevice].systemVersion;
+  __block NSData *screenshotData = nil;
+  BOOL fullScreen = [request.arguments[@"full"] integerValue] == 1 ? YES : NO;
+  NSUInteger q = (NSUInteger)[request.arguments[@"quality"] unsignedIntegerValue];
+  NSString *type = request.arguments[@"type"];
+  Class xcScreenClass = objc_lookUpClass("XCUIScreen");
+  XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
+  
+  rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
+
+  if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
+    rect = CGRectNull;
+  }
+  
+  if ( [type isEqualToString:@"SMALLJPG"] ) {
+    CGFloat compressionQuality = MAX(FBMinCompressionQuality,
+                                     MIN(FBMaxCompressionQuality, FBConfiguration.mjpegServerScreenshotQuality / 100.0));
+    XCUIScreen *mainScreen = XCUIScreen.mainScreen;
+    NSData *screenshotData = [FBScreenshot takeInOriginalResolutionWithScreenID:mainScreen.displayID
+                                                           compressionQuality:compressionQuality
+                                                                          uti:UTTypeJPEG
+                                                                      timeout:SCREENSHOT_TIMEOUT
+                                                                        error:&error];
+    if (nil == screenshotData) {
+      return nil;
+    }
+    CGFloat scalingFactor = FBConfiguration.mjpegScalingFactor / 100.0;
+    screenshotData = [[[FBImageProcessor alloc] init] scaledImageWithData:screenshotData
+                                                            uti:UTTypeJPEG
+                                                  scalingFactor:scalingFactor
+                                             compressionQuality:FBMaxCompressionQuality
+                                                          error:&error];
+    
+    if (nil != screenshotData) {
+      return UUResponseWithJPG(screenshotData);
+    }
+  }
+  
+  
+  if ([UUElementCommands isNewScreenshotAPISupported]) {
+    id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
+    __block NSError *innerError = nil;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    if (SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"15.0")) {
+      id screnshotRequest = [FBScreenshot screenshotRequestWithScreenID:[XCUIScreen.mainScreen displayID]
+                                                                 rect:rect
+                                                                  uti:UTTypeJPEG
+                                                   compressionQuality:FBMaxCompressionQuality/2
+                                                                error:&error];
+      if (nil == screnshotRequest) {
+        return nil;
+      }
+      [proxy _XCT_requestScreenshot:screnshotRequest
+                          withReply:^(id image, NSError *err) {
+        if (nil != err) {
+          innerError = err;
+        } else {
+          screenshotData = [image data];
+        }
+        dispatch_semaphore_signal(sem);
+      }];
+      dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
+      if (nil == screenshotData) {
+        return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:@"Screen shot failed" traceback:nil]);
+      } else {
+        return UUResponseWithJPG(screenshotData);
+      }
+    }
+    
+    if (version.doubleValue >= 14.1) {
+        rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
+        if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
+          rect = CGRectNull;
+        }
+        [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]
+                                             withRect:rect
+                                                  uti:(__bridge id)kUTTypeJPEG
+                                   compressionQuality:FBMaxCompressionQuality
+                                            withReply:^(NSData *data, NSError *err) {
+            if (err != nil) {
+                [FBLogger logFmt:@"Error taking screenshot: %@", [error description]];
+            }
+            screenshotData = data;
+            dispatch_semaphore_signal(sem);
+        }];
+        dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
+        if (nil != screenshotData) {
+          return UUResponseWithJPG(screenshotData);
+        }
+    }
+  }
+  
+  if (![mainScreen respondsToSelector: @selector(screenshotDataForQuality:rect:error:)]) {
+      CGFloat screenshotCompressionQuality = 1.0;
+      id<XCTestManager_ManagerInterface> proxy = [FBXCTestDaemonsProxy testRunnerProxy];
+      dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+      [proxy _XCT_requestScreenshotOfScreenWithID:[[XCUIScreen mainScreen] displayID]
+                                           withRect:rect
+                                                uti:(__bridge id)kUTTypeJPEG
+                                 compressionQuality:screenshotCompressionQuality
+                                          withReply:^(NSData *data, NSError *err) {
+          if (err != nil) {
+              [FBLogger logFmt:@"Error taking screenshot: %@", [error description]];
+          }
+          screenshotData = data;
+          dispatch_semaphore_signal(sem);
+      }];
+      dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(SCREENSHOT_TIMEOUT * NSEC_PER_SEC)));
+      if (nil != screenshotData) {
+        return UUResponseWithJPG(screenshotData);
+      }
+  }
+  
+  double scaled = [[DeviceInfoManager sharedManager] getScaleFactor];
+  
+  if (!fullScreen) {
+    if (version.doubleValue >= 11.0) {
+        rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue], (CGFloat)[request.arguments[@"y"] doubleValue], (CGFloat)[request.arguments[@"width"] doubleValue], (CGFloat)[request.arguments[@"height"] doubleValue]);
+    } else {
+        rect = CGRectMake((CGFloat)[request.arguments[@"x"] doubleValue] * scaled, (CGFloat)[request.arguments[@"y"] doubleValue] * scaled, (CGFloat)[request.arguments[@"width"] doubleValue] * scaled, (CGFloat)[request.arguments[@"height"] doubleValue] * scaled);
+    }
+  }
+
+  screenshotData = nil;
+  //Class xcScreenClass = objc_lookUpClass("XCUIScreen");
+  if (xcScreenClass == nil) {
+    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:@"Screen shot failed, XCUIScreen is nil" traceback:nil]);
+  }
+
+  NSUInteger quality = 2;
+  CGRect screenRect = CGRectZero;
+  
+  if (rect.origin.x < 0 || rect.origin.y < 0 || (0.0 == rect.size.height && 0.0 == rect.size.width) || fullScreen) {
+    XCUIApplication *app = XCUIApplication.fb_systemApplication;
+    CGSize screenSize = FBAdjustDimensionsForApplication(app.frame.size, app.interfaceOrientation);
+    if (version.doubleValue >= 11.0) {
+      screenRect = CGRectMake(0, 0, screenSize.width, screenSize.height);
+    } else {
+      screenRect = CGRectMake(0, 0, screenSize.width * scaled, screenSize.height * scaled);
+    }
+  } else {
+    screenRect = rect;
+  }
+  if (0 < q && q < 3) {
+    quality = q;
+  }
+  //XCUIScreen *mainScreen = (XCUIScreen *)[xcScreenClass mainScreen];
+  if ([type isEqualToString:@"PNG"]) {
+    screenshotData = [[mainScreen screenshot] PNGRepresentation];
+  } else {
+    screenshotData = [mainScreen screenshotDataForQuality:quality rect:screenRect error:&error];
+  }
+  if (nil == screenshotData || error) {
+    return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:@"Screen shot failed, XCUIScreen is nil" traceback:nil]);
+  }
+  
+  if ([type isEqualToString:@"PNG"]) {
+    return UUResponseWithPNG(screenshotData);
+  } else {
+    return UUResponseWithJPG(screenshotData);
+  }
+}
+
++ (id<FBResponsePayload>)uu_handleScalingScreenshot:(FBRouteRequest *)request
+{
+  CGFloat scalingFactor = [FBConfiguration mjpegScalingFactor] / 100.0f;
+  BOOL usesScaling = fabs(FBMaxScalingFactor - scalingFactor) > DBL_EPSILON;
+  CGFloat compressionQuality = FBConfiguration.mjpegServerScreenshotQuality / 100.0f;
+  // If scaling is applied we perform another JPEG compression after scaling
+  // To get the desired compressionQuality we need to do a lossless compression here
+  CGFloat screenshotCompressionQuality = usesScaling ? FBMaxCompressionQuality : compressionQuality;
+  NSError *error;
+  NSData *screenshotData = [FBScreenshot takeInOriginalResolutionWithScreenID:[XCUIScreen.mainScreen displayID]
+                                                           compressionQuality:screenshotCompressionQuality
+                                                                          uti:UTTypeJPEG
+                                                                      timeout:1.
+                                                                        error:&error];
+  if (nil == screenshotData) {
+    [FBLogger logFmt:@"%@", error.description];
+    FBResponseWithUnknownErrorFormat(@"screenshot error: %@",[error description]);
+  }
+
+  if (usesScaling) {
+    screenshotData = [self.class scaledJpegImageWithImage:screenshotData scalingFactor:scalingFactor compressionQuality:compressionQuality error:&error];
+  }
+  NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
+  return FBResponseWithObject(screenshot);
+}
+
++  (nullable NSData *)scaledJpegImageWithImage:(NSData *)image
+                                scalingFactor:(CGFloat)scalingFactor
+                           compressionQuality:(CGFloat)compressionQuality
+                                        error:(NSError **)error
+{
+  CGImageSourceRef imageData = CGImageSourceCreateWithData((CFDataRef)image, nil);
+  CGSize size = [self.class imageSizeWithImage:imageData];
+  CGFloat scaledMaxPixelSize = MAX(size.width, size.height) * scalingFactor;
+  CFDictionaryRef params = (__bridge CFDictionaryRef)@{
+    (const NSString *)kCGImageSourceCreateThumbnailWithTransform: @(YES),
+    (const NSString *)kCGImageSourceCreateThumbnailFromImageIfAbsent: @(YES),
+    (const NSString *)kCGImageSourceThumbnailMaxPixelSize: @(scaledMaxPixelSize)
+  };
+  CGImageRef scaled = CGImageSourceCreateThumbnailAtIndex(imageData, 0, params);
+  CFRelease(imageData);
+  if (nil == scaled) {
+    [[[FBErrorBuilder builder]
+      withDescriptionFormat:@"Failed to scale the image"]
+     buildError:error];
+    return nil;
+  }
+  NSData *resData = [self.class jpegDataWithImage:scaled
+                         compressionQuality:compressionQuality];
+  if (nil == resData) {
+    [[[FBErrorBuilder builder]
+      withDescriptionFormat:@"Failed to compress the image to JPEG format"]
+     buildError:error];
+  }
+  CGImageRelease(scaled);
+  return resData;
+}
+
++ (CGSize)imageSizeWithImage:(CGImageSourceRef)imageSource
+{
+  NSDictionary *options = @{
+    (const NSString *)kCGImageSourceShouldCache: @(NO)
+  };
+  CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, (CFDictionaryRef)options);
+  NSNumber *width = [(__bridge NSDictionary *)properties objectForKey:(const NSString *)kCGImagePropertyPixelWidth];
+  NSNumber *height = [(__bridge NSDictionary *)properties objectForKey:(const NSString *)kCGImagePropertyPixelHeight];
+  CGSize size = CGSizeMake([width floatValue], [height floatValue]);
+  CFRelease(properties);
+  return size;
+}
+
++ (nullable NSData *)jpegDataWithImage:(CGImageRef)imageRef
+                    compressionQuality:(CGFloat)compressionQuality
+{
+  NSMutableData *newImageData = [NSMutableData data];
+  CGImageDestinationRef imageDestination = CGImageDestinationCreateWithData((CFMutableDataRef)newImageData, kUTTypeJPEG, 1, NULL);
+  CFDictionaryRef compressionOptions = (__bridge CFDictionaryRef)@{
+    (const NSString *)kCGImageDestinationLossyCompressionQuality: @(compressionQuality)
+  };
+  CGImageDestinationAddImage(imageDestination, imageRef, compressionOptions);
+  if(!CGImageDestinationFinalize(imageDestination)) {
+    [FBLogger log:@"Failed to write the image"];
+    newImageData = nil;
+  }
+  CFRelease(imageDestination);
+  return newImageData;
+}
+
++ (BOOL)isNewScreenshotAPISupported
+{
+  static dispatch_once_t newScreenshotAPISupported;
+  static BOOL result;
+  dispatch_once(&newScreenshotAPISupported, ^{
+    result = [(NSObject *)[FBXCTestDaemonsProxy testRunnerProxy] respondsToSelector:@selector(_XCT_requestScreenshotOfScreenWithID:withRect:uti:compressionQuality:withReply:)];
+  });
+  return result;
+}
+
++ (id<FBResponsePayload>)uu_handleOpenURL:(FBRouteRequest *)request
+{
+  NSString *urlString = request.arguments[@"url"];
+  if (!urlString) {
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"URL is required" traceback:nil]);
+  }
+  NSString* bundleId = request.arguments[@"bundleId"];
+  NSNumber* idleTimeoutMs = request.arguments[@"idleTimeoutMs"];
+  NSError *error;
+  if (nil == bundleId) {
+    if (![XCUIDevice.sharedDevice fb_openUrl:urlString error:&error]) {
+      return FBResponseWithUnknownError(error);
+    }
+  } else {
+    if (![XCUIDevice.sharedDevice fb_openUrl:urlString withApplication:bundleId error:&error]) {
+      return FBResponseWithUnknownError(error);
+    }
+    if (idleTimeoutMs.doubleValue > 0) {
+      XCUIApplication *app = [[XCUIApplication alloc] initWithBundleIdentifier:bundleId];
+      [app fb_waitUntilStableWithTimeout:FBMillisToSeconds(idleTimeoutMs.doubleValue)];
+    }
+  }
+  return FBResponseWithOK();
+}
+
+
++ (XCUICoordinate *)uuGestureCoordinateWithOffset:(CGVector)offset
+                                        element:(XCUIElement *)element
+{
+  return [[element coordinateWithNormalizedOffset:CGVectorMake(0, 0)] coordinateWithOffset:offset];
+}
+
+
++ (UIDeviceOrientation)uuOrientation
+
+{
+//  UIDeviceOrientationLandscapeLeft,
+//  UIDeviceOrientationLandscapeRight,
+  UIDeviceOrientation orientation = [XCUIDevice sharedDevice].orientation;
+  return orientation;
+}
+
++ (id<FBResponsePayload>)uuSource:(FBRouteRequest *)request
+{
+  // This method might be called without session
+//  XCUIApplication *application = request.session.activeApplication ?: XCUIApplication.fb_activeApplication;
+  
+  NSString *sourceType = request.parameters[@"format"] ?: SOURCE_FORMAT_XML;
+  NSString *sourceScope = request.parameters[@"scope"];
+  NSString *bundleIdentifier = request.parameters[@"bundleID"];
+  XCUIApplication *application = [[XCUIApplication alloc] initWithBundleIdentifier:bundleIdentifier];
+  id result;
+  if ([sourceType caseInsensitiveCompare:SOURCE_FORMAT_XML] == NSOrderedSame) {
+    NSArray<NSString *> *excludedAttributes = nil == request.parameters[@"excluded_attributes"]
+      ? nil
+      : [request.parameters[@"excluded_attributes"] componentsSeparatedByString:@","];
+    result = [application fb_xmlRepresentationWithOptions:
+        [[[FBXMLGenerationOptions new]
+          withExcludedAttributes:excludedAttributes]
+         withScope:sourceScope]];
+  } else if ([sourceType caseInsensitiveCompare:SOURCE_FORMAT_JSON] == NSOrderedSame) {
+    NSString *excludedAttributesString = request.parameters[@"excluded_attributes"];
+    NSSet<NSString *> *excludedAttributes = (excludedAttributesString == nil)
+          ? nil
+          : [NSSet setWithArray:[excludedAttributesString componentsSeparatedByString:@","]];
+
+    result = [application fb_tree:excludedAttributes];
+  } else if ([sourceType caseInsensitiveCompare:SOURCE_FORMAT_DESCRIPTION] == NSOrderedSame) {
+    result = application.fb_descriptionRepresentation;
+  } else {
+    return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:[NSString stringWithFormat:@"Unknown source format '%@'. Only %@ source formats are supported.",
+                                                                                  sourceType, @[SOURCE_FORMAT_XML, SOURCE_FORMAT_JSON, SOURCE_FORMAT_DESCRIPTION]] traceback:nil]);
+  }
+  if (nil == result) {
+    return FBResponseWithUnknownErrorFormat(@"Cannot get '%@' source of the current application", sourceType);
+  }
+  return FBResponseWithObject(result);
+}
+
+
 
 
 @end

@@ -46,7 +46,6 @@ static NSUInteger FBMjpegServerFramerate = 10;
 static BOOL FBShouldTerminateApp;
 static NSNumber* FBMaxTypingFrequency;
 static NSUInteger FBScreenshotQuality;
-static NSTimeInterval FBCustomSnapshotTimeout;
 static BOOL FBShouldUseFirstMatch;
 static BOOL FBShouldBoundElementsByIndex;
 static BOOL FBIncludeNonModalElements;
@@ -346,7 +345,6 @@ static UIInterfaceOrientation FBScreenshotOrientation;
 
 + (void)setKeyboardAutocorrection:(BOOL)isEnabled
 {
-
   [self configureKeyboardsPreference:isEnabled forPreferenceKey:FBKeyboardAutocorrectionKey];
 }
 
@@ -357,18 +355,7 @@ static UIInterfaceOrientation FBScreenshotOrientation;
 
 + (void)setKeyboardPrediction:(BOOL)isEnabled
 {
-
   [self configureKeyboardsPreference:isEnabled forPreferenceKey:FBKeyboardPredictionKey];
-}
-
-+ (void)setCustomSnapshotTimeout:(NSTimeInterval)timeout
-{
-  FBCustomSnapshotTimeout = timeout;
-}
-
-+ (NSTimeInterval)customSnapshotTimeout
-{
-  return FBCustomSnapshotTimeout;
 }
 
 + (void)setSnapshotMaxDepth:(int)maxDepth
@@ -504,7 +491,6 @@ static UIInterfaceOrientation FBScreenshotOrientation;
   FBElementResponseAttributes = @"type,label";
   FBMaxTypingFrequency = @([self defaultTypingFrequency]);
   FBScreenshotQuality = 3;
-  FBCustomSnapshotTimeout = 15.;
   FBShouldUseFirstMatch = NO;
   FBShouldBoundElementsByIndex = NO;
   // This is diabled by default because enabling it prevents the accessbility snapshot to be taken

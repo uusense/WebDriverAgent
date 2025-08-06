@@ -68,8 +68,6 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
  @return Device screenshot as PNG-encoded data or nil in case of failure
  */
 - (nullable NSData *)fb_screenshotWithError:(NSError*__autoreleasing*)error;
-//- (nullable NSData *)uu_screenshotWithError:(NSError*__autoreleasing*)error;
-//- (nullable NSData *)uu_screenshotWithSize:(CGRect)rect andQuality:(NSUInteger)q andError:(NSError*__autoreleasing*)error;
 
 /**
  Returns device's current wifi ip4 address

@@ -79,8 +79,7 @@ static FBSession *_activeSession = nil;
 
 + (instancetype)activeSession
 {
-  return _activeSession ?: [FBSession initWithApplication:nil];
-  //return _activeSession;
+  return _activeSession;
 }
 
 + (void)markSessionActive:(FBSession *)session
@@ -258,6 +257,5 @@ static FBSession *_activeSession = nil;
     ? self.testedApplication
     : [[XCUIApplication alloc] initWithBundleIdentifier:bundleIdentifier];
 }
-
 
 @end

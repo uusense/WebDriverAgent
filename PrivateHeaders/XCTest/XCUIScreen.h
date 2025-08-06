@@ -24,3 +24,4 @@
 - (id)initWithDisplayID:(long long)arg1 isMainScreen:(_Bool)arg2 device:(id)arg3 screenDataSource:(id)arg4;
 
 @end
+

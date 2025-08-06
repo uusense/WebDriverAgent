@@ -10,6 +10,8 @@
 #import <WebDriverAgentLib/WebDriverAgentLib.h>
 #import "XCPointerEvent.h"
 
+@class FBXCElementSnapshot;
+
 /**
  The version of testmanagerd process which is running on the device.
 
@@ -42,10 +44,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  Returns single unique matching snapshot for the given query
+
  @param error The error instance if there was a failure while retrieveing the snapshot
  @returns The cached unqiue snapshot or nil if the element is stale
  */
-- (nullable XCElementSnapshot *)fb_uniqueSnapshotWithError:(NSError **)error;
+- (nullable id<FBXCElementSnapshot>)fb_uniqueSnapshotWithError:(NSError **)error;
 
 @end
 
@@ -60,22 +63,15 @@ NS_ASSUME_NONNULL_BEGIN
 @interface XCUIElement (FBCompatibility)
 
 /**
- Enforces snapshot resolution of the destination element.
- !!! Do not cal this method on Xcode 11 or later due to performance considerations.
- Prefer using fb_takeSnapshot instead.
- @param error Contains the actual error if element resolution fails
- @returns YES if the element has been successfully resolved
- */
-- (BOOL)fb_resolveWithError:(NSError **)error;
-
-/**
  Determines whether current iOS SDK supports non modal elements inlusion into snapshots
+
  @return Either YES or NO
  */
 + (BOOL)fb_supportsNonModalElementsInclusion;
 
 /**
  Retrieves element query
+
  @return Element query property extended with non modal elements depending on the actual configuration
  */
 - (XCUIElementQuery *)fb_query;

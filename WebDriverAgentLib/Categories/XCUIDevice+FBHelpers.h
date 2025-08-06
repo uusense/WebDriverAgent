@@ -61,7 +61,6 @@ typedef NS_ENUM(NSUInteger, FBUIInterfaceAppearance) {
  @return YES if the operation succeeds, otherwise NO.
  */
 - (BOOL)fb_unlockScreen:(NSError **)error;
-- (BOOL)uu_unlockScreen:(NSError **)error;
 
 /**
  Returns screenshot

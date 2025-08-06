@@ -477,7 +477,7 @@ static const NSTimeInterval UUHomeButtonCoolOffTime = 0.0;
 
 + (id<FBResponsePayload>)handleUnlock:(FBRouteRequest *)request {
   NSError *error;
-  if (![[XCUIDevice sharedDevice] uu_unlockScreen:&error]) {
+  if (![[XCUIDevice sharedDevice] fb_unlockScreen:&error]) {
     return FBResponseWithUnknownError(error);
   }
   return FBResponseWithOK();
